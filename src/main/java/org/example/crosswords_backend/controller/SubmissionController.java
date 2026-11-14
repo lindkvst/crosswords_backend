@@ -3,6 +3,7 @@ package org.example.crosswords_backend.controller;
 import org.example.crosswords_backend.dto.SubmissionDto;
 import org.example.crosswords_backend.dto.SubmissionRequestDto;
 import org.example.crosswords_backend.dto.SubmissionResultDto;
+import org.example.crosswords_backend.model.ClaudeModel;
 import org.example.crosswords_backend.service.SubmissionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -36,9 +38,11 @@ public class SubmissionController {
     }
 
     // No request body: Claude gets the puzzle from the database, not from the client.
+    // Spring converts ?model=CHEAP_AND_DUMB to the enum. An unknown name never reaches our code.
     @PostMapping("/claude")
-    public ResponseEntity<SubmissionResultDto> submitByClaude(@PathVariable int crosswordId) {
-        SubmissionResultDto result = submissionService.submitByClaude(crosswordId);
+    public ResponseEntity<SubmissionResultDto> submitByClaude(@PathVariable int crosswordId,
+                                                              @RequestParam ClaudeModel model) {
+        SubmissionResultDto result = submissionService.submitByClaude(crosswordId, model);
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 

@@ -2,8 +2,8 @@ package org.example.crosswords_backend.client;
 
 import org.example.crosswords_backend.dto.PuzzleDto;
 import org.example.crosswords_backend.exception.ClaudeAnswerException;
+import org.example.crosswords_backend.model.ClaudeModel;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -17,10 +17,11 @@ import java.util.Map;
 @Component
 public class ClaudeApiClient {
 
-    // Room for Claude's thinking as well as the short answer. Thinking counts towards this limit.
-    private static final int MAX_TOKENS = 8000;
+    // Room for Claude's thinking as well as the short answer. Thinking counts towards this limit,
+    // and the expensive models think the longest.
+    private static final int MAX_TOKENS = 16000;
     // WebClient waits forever by default. A stuck call should fail instead of hanging the request.
-    private static final Duration TIMEOUT = Duration.ofSeconds(120);
+    private static final Duration TIMEOUT = Duration.ofSeconds(300);
 
     private static final String SYSTEM_PROMPT = """
             You solve Danish crosswords.
@@ -43,20 +44,17 @@ public class ClaudeApiClient {
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
-    private final String model;
 
     public ClaudeApiClient(@Qualifier("claudeWebClient") WebClient webClient,
-                           ObjectMapper objectMapper,
-                           @Value("${anthropic.model}") String model) {
+                           ObjectMapper objectMapper) {
         this.webClient = webClient;
         this.objectMapper = objectMapper;
-        this.model = model;
     }
 
     // Takes a PuzzleDto, which has no answers. That type is the guarantee that Claude never sees the answer key.
-    public List<String> solveCrossword(PuzzleDto puzzle) {
+    public List<String> solveCrossword(PuzzleDto puzzle, ClaudeModel model) {
         ClaudeRequest request = new ClaudeRequest(
-                model,
+                model.getModelId(),
                 MAX_TOKENS,
                 SYSTEM_PROMPT,
                 List.of(new ClaudeRequest.Message("user", objectMapper.writeValueAsString(puzzle))),

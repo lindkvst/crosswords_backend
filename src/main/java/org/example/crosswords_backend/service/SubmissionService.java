@@ -8,6 +8,7 @@ import org.example.crosswords_backend.dto.SubmissionMapper;
 import org.example.crosswords_backend.dto.SubmissionRequestDto;
 import org.example.crosswords_backend.dto.SubmissionResultDto;
 import org.example.crosswords_backend.gridlogic.GridScorer;
+import org.example.crosswords_backend.model.ClaudeModel;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.CrosswordSubmission;
 import org.example.crosswords_backend.repository.CrosswordSubmissionRepository;
@@ -40,10 +41,10 @@ public class SubmissionService {
 
     public SubmissionResultDto submitByPlayer(int crosswordId, SubmissionRequestDto request) {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
-        return scoreAndSave(crossword, request.grid(), false, Math.max(0, request.timeToSolveMs()));
+        return scoreAndSave(crossword, request.grid(), null, Math.max(0, request.timeToSolveMs()));
     }
 
-    public SubmissionResultDto submitByClaude(int crosswordId) {
+    public SubmissionResultDto submitByClaude(int crosswordId, ClaudeModel model) {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
 
         // Built from emptyPuzzleJson by the same mapper as the frontend uses, so Claude gets exactly what a player sees.
@@ -51,10 +52,10 @@ public class SubmissionService {
 
         // Here the backend measures the time itself, so it can be trusted (unlike the player's time).
         long start = System.currentTimeMillis();
-        List<String> claudeGrid = claudeApiClient.solveCrossword(puzzle);
+        List<String> claudeGrid = claudeApiClient.solveCrossword(puzzle, model);
         int timeToSolveMs = (int) (System.currentTimeMillis() - start);
 
-        return scoreAndSave(crossword, claudeGrid, true, timeToSolveMs);
+        return scoreAndSave(crossword, claudeGrid, model, timeToSolveMs);
     }
 
     public List<SubmissionDto> findByCrossword(int crosswordId) {
@@ -65,16 +66,16 @@ public class SubmissionService {
                 .toList();
     }
 
-    // Player and Claude are scored in exactly the same way.
+    // Player and Claude are scored in exactly the same way. llmModel is null for a player.
     private SubmissionResultDto scoreAndSave(Crossword crossword, List<String> submittedGrid,
-                                             boolean llmAssisted, int timeToSolveMs) {
+                                             ClaudeModel llmModel, int timeToSolveMs) {
         // Computed here, never in the frontend, because only the backend has the answer key.
         List<String> answerKeyGrid = crosswordMapper.toAnswerKeyGrid(crossword);
         List<String> cellMarks = GridScorer.markCells(answerKeyGrid, submittedGrid);
         int percentCorrect = GridScorer.percentCorrect(cellMarks);
 
         CrosswordSubmission saved = submissionRepository.save(
-                submissionMapper.toEntity(crossword, submittedGrid, llmAssisted, timeToSolveMs, percentCorrect));
+                submissionMapper.toEntity(crossword, submittedGrid, llmModel, timeToSolveMs, percentCorrect));
         return new SubmissionResultDto(submissionMapper.toDto(saved), submittedGrid, cellMarks);
     }
 }

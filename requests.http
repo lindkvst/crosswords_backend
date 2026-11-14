@@ -19,5 +19,6 @@ Content-Type: application/json
 ### List all submissions for crossword 1
 GET http://localhost:8080/api/crosswords/1/submissions
 
-### Let Claude solve crossword 1 (costs a few Anthropic tokens, takes up to a minute)
-POST http://localhost:8080/api/crosswords/1/submissions/claude
+### Let Claude solve crossword 1. model is CHEAP_AND_DUMB, SMARTER_AND_PRICIER or TOTAL_TOKEN_KILLER.
+### TOTAL_TOKEN_KILLER can take a few minutes.
+POST http://localhost:8080/api/crosswords/1/submissions/claude?model=CHEAP_AND_DUMB

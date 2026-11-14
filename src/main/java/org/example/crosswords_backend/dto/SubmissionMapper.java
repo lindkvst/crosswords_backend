@@ -1,5 +1,6 @@
 package org.example.crosswords_backend.dto;
 
+import org.example.crosswords_backend.model.ClaudeModel;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.CrosswordSubmission;
 import org.springframework.stereotype.Component;
@@ -17,17 +18,17 @@ public class SubmissionMapper {
     }
 
     public CrosswordSubmission toEntity(Crossword crossword, List<String> submittedGrid,
-                                        boolean llmAssisted, int timeToSolveMs, int percentCorrect) {
+                                        ClaudeModel llmModel, int timeToSolveMs, int percentCorrect) {
         // No user yet: users arrive with Spring Security in V2.0.
         return new CrosswordSubmission(crossword, null, objectMapper.writeValueAsString(submittedGrid),
-                llmAssisted, timeToSolveMs, percentCorrect);
+                llmModel, timeToSolveMs, percentCorrect);
     }
 
     public SubmissionDto toDto(CrosswordSubmission submission) {
         return new SubmissionDto(
                 submission.getId(),
                 submission.getCrossword().getId(),
-                submission.isLlmAssisted(),
+                submission.getLlmModel(),
                 submission.getTimeToSolveMs(),
                 submission.getPercentCorrect(),
                 submission.getCreatedOn());

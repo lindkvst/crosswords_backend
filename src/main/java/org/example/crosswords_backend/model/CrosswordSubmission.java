@@ -2,6 +2,8 @@ package org.example.crosswords_backend.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -31,7 +33,9 @@ public class CrosswordSubmission {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String submittedGridJson;
 
-    private boolean llmAssisted;
+    // Which Claude model solved it. Empty when a player solved it.
+    @Enumerated(EnumType.STRING)
+    private ClaudeModel llmModel;
 
     private int timeToSolveMs;
 
@@ -45,11 +49,11 @@ public class CrosswordSubmission {
     }
 
     public CrosswordSubmission(Crossword crossword, AppUser user, String submittedGridJson,
-                             boolean llmAssisted, int timeToSolveMs, int percentCorrect) {
+                             ClaudeModel llmModel, int timeToSolveMs, int percentCorrect) {
         this.crossword = crossword;
         this.user = user;
         this.submittedGridJson = submittedGridJson;
-        this.llmAssisted = llmAssisted;
+        this.llmModel = llmModel;
         this.timeToSolveMs = timeToSolveMs;
         this.percentCorrect = percentCorrect;
         this.createdOn = LocalDateTime.now();
@@ -71,8 +75,8 @@ public class CrosswordSubmission {
         return submittedGridJson;
     }
 
-    public boolean isLlmAssisted() {
-        return llmAssisted;
+    public ClaudeModel getLlmModel() {
+        return llmModel;
     }
 
     public int getTimeToSolveMs() {
