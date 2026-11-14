@@ -36,7 +36,7 @@ public class CrosswordSubmission {
     private int timeToSolveMs;
 
     // Percentage of letter cells that match the answer key, 0-100. Always computed in the backend.
-    private int score;
+    private int percentCorrect;
 
     private LocalDateTime createdOn;
 
@@ -45,13 +45,13 @@ public class CrosswordSubmission {
     }
 
     public CrosswordSubmission(Crossword crossword, AppUser user, String submittedGridJson,
-                             boolean llmAssisted, int timeToSolveMs, int score) {
+                             boolean llmAssisted, int timeToSolveMs, int percentCorrect) {
         this.crossword = crossword;
         this.user = user;
         this.submittedGridJson = submittedGridJson;
         this.llmAssisted = llmAssisted;
         this.timeToSolveMs = timeToSolveMs;
-        this.score = score;
+        this.percentCorrect = percentCorrect;
         this.createdOn = LocalDateTime.now();
     }
 
@@ -79,8 +79,8 @@ public class CrosswordSubmission {
         return timeToSolveMs;
     }
 
-    public int getScore() {
-        return score;
+    public int getPercentCorrect() {
+        return percentCorrect;
     }
 
     public LocalDateTime getCreatedOn() {

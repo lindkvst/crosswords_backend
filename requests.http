@@ -6,3 +6,15 @@ GET http://localhost:8080/api/crosswords
 
 ### Get one crossword
 GET http://localhost:8080/api/crosswords/1
+
+### Submit a filled-in grid for crossword 1 ('.' = empty cell, '#' = black cell)
+POST http://localhost:8080/api/crosswords/1/submissions
+Content-Type: application/json
+
+{
+  "grid": ["AB#CD", "EFGHI", "JKLMN", "OPQRS", "TU#VW"],
+  "timeToSolveMs": 42000
+}
+
+### List all submissions for crossword 1
+GET http://localhost:8080/api/crosswords/1/submissions

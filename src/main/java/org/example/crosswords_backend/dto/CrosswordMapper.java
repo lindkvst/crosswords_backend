@@ -26,6 +26,11 @@ public class CrosswordMapper {
                 objectMapper.writeValueAsString(answerKeyGrid));
     }
 
+    // Only for scoring inside the backend. Never put the result in a DTO.
+    public List<String> toAnswerKeyGrid(Crossword crossword) {
+        return List.of(objectMapper.readValue(crossword.getAnswerKeyJson(), String[].class));
+    }
+
     // Built only from emptyPuzzleJson, so the answer key cannot end up in a response by accident.
     public CrosswordDto toDto(Crossword crossword) {
         PuzzleDto puzzle = objectMapper.readValue(crossword.getEmptyPuzzleJson(), PuzzleDto.class);

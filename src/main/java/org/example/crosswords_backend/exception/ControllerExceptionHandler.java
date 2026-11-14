@@ -17,6 +17,11 @@ public class ControllerExceptionHandler {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(InvalidSubmissionException.class)
+    public ResponseEntity<ErrorMessage> invalidSubmission(InvalidSubmissionException ex, WebRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(CrosswordApiException.class)
     public ResponseEntity<ErrorMessage> crosswordApiFailed(CrosswordApiException ex, WebRequest request) {
         return build(HttpStatus.BAD_GATEWAY, ex.getMessage(), request);

@@ -23,7 +23,7 @@ import java.util.Map;
 @Service
 public class CrosswordService {
 
-    private static final String NO_CLUE = "No clue available - use the crossing letters";
+    private static final String NO_CLUE = "Ingen ledetråd - brug de krydsende bogstaver";
 
     private final CrosswordApiClient apiClient;
     private final CrosswordRepository crosswordRepository;
@@ -73,9 +73,14 @@ public class CrosswordService {
     }
 
     public CrosswordDto findById(int id) {
-        Crossword crossword = crosswordRepository.findById(id)
+        return mapper.toDto(findEntityById(id));
+    }
+
+    // For other services only. It returns the entity, which holds the answer key,
+    // so a controller must never return the result of this method.
+    public Crossword findEntityById(int id) {
+        return crosswordRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("No crossword with id " + id));
-        return mapper.toDto(crossword);
     }
 
     private String pickClue(List<ApiClue> candidates) {
