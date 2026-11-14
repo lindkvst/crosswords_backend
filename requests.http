@@ -1,0 +1,8 @@
+### Create a new crossword (uses one fill of the monthly quota)
+POST http://localhost:8080/api/crosswords
+
+### List all saved crosswords (no quota used)
+GET http://localhost:8080/api/crosswords
+
+### Get one crossword
+GET http://localhost:8080/api/crosswords/1
