@@ -18,4 +18,18 @@ public class WebClientConfig {
                 .defaultHeaders(headers -> headers.setBearerAuth(apiKey))
                 .build();
     }
+
+    @Bean
+    public WebClient claudeWebClient(@Value("${anthropic.api.base-url}") String baseUrl,
+                                     @Value("${anthropic.api.key}") String apiKey,
+                                     @Value("${anthropic.api.version}") String apiVersion) {
+        // Same pattern as above. Anthropic also requires a version header on every request.
+        return WebClient.builder()
+                .baseUrl(baseUrl)
+                .defaultHeaders(headers -> {
+                    headers.setBearerAuth(apiKey);
+                    headers.set("anthropic-version", apiVersion);
+                })
+                .build();
+    }
 }

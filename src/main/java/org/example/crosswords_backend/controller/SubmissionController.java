@@ -35,6 +35,13 @@ public class SubmissionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
+    // No request body: Claude gets the puzzle from the database, not from the client.
+    @PostMapping("/claude")
+    public ResponseEntity<SubmissionResultDto> submitByClaude(@PathVariable int crosswordId) {
+        SubmissionResultDto result = submissionService.submitByClaude(crosswordId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
     @GetMapping
     public List<SubmissionDto> findByCrosswordId(@PathVariable int crosswordId) {
         return submissionService.findByCrossword(crosswordId);

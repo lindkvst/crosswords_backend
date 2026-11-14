@@ -1,6 +1,8 @@
 package org.example.crosswords_backend.service;
 
+import org.example.crosswords_backend.client.ClaudeApiClient;
 import org.example.crosswords_backend.dto.CrosswordMapper;
+import org.example.crosswords_backend.dto.PuzzleDto;
 import org.example.crosswords_backend.dto.SubmissionDto;
 import org.example.crosswords_backend.dto.SubmissionMapper;
 import org.example.crosswords_backend.dto.SubmissionRequestDto;
@@ -22,29 +24,37 @@ public class SubmissionService {
     private final CrosswordSubmissionRepository submissionRepository;
     private final CrosswordMapper crosswordMapper;
     private final SubmissionMapper submissionMapper;
+    private final ClaudeApiClient claudeApiClient;
 
     public SubmissionService(CrosswordService crosswordService,
                              CrosswordSubmissionRepository submissionRepository,
                              CrosswordMapper crosswordMapper,
-                             SubmissionMapper submissionMapper) {
+                             SubmissionMapper submissionMapper,
+                             ClaudeApiClient claudeApiClient) {
         this.crosswordService = crosswordService;
         this.submissionRepository = submissionRepository;
         this.crosswordMapper = crosswordMapper;
         this.submissionMapper = submissionMapper;
+        this.claudeApiClient = claudeApiClient;
     }
 
     public SubmissionResultDto submitByPlayer(int crosswordId, SubmissionRequestDto request) {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
+        return scoreAndSave(crossword, request.grid(), false, Math.max(0, request.timeToSolveMs()));
+    }
 
-        // The percentage is computed here, never in the frontend, because only the backend has the answer key.
-        List<String> answerKeyGrid = crosswordMapper.toAnswerKeyGrid(crossword);
-        List<String> cellMarks = GridScorer.markCells(answerKeyGrid, request.grid());
-        int percentCorrect = GridScorer.percentCorrect(cellMarks);
-        int timeToSolveMs = Math.max(0, request.timeToSolveMs());
+    public SubmissionResultDto submitByClaude(int crosswordId) {
+        Crossword crossword = crosswordService.findEntityById(crosswordId);
 
-        CrosswordSubmission saved = submissionRepository.save(
-                submissionMapper.toEntity(crossword, request.grid(), false, timeToSolveMs, percentCorrect));
-        return new SubmissionResultDto(submissionMapper.toDto(saved), cellMarks);
+        // Built from emptyPuzzleJson by the same mapper as the frontend uses, so Claude gets exactly what a player sees.
+        PuzzleDto puzzle = crosswordMapper.toDto(crossword).puzzle();
+
+        // Here the backend measures the time itself, so it can be trusted (unlike the player's time).
+        long start = System.currentTimeMillis();
+        List<String> claudeGrid = claudeApiClient.solveCrossword(puzzle);
+        int timeToSolveMs = (int) (System.currentTimeMillis() - start);
+
+        return scoreAndSave(crossword, claudeGrid, true, timeToSolveMs);
     }
 
     public List<SubmissionDto> findByCrossword(int crosswordId) {
@@ -53,5 +63,18 @@ public class SubmissionService {
         return submissionRepository.findByCrosswordIdOrderByCreatedOnDesc(crosswordId).stream()
                 .map(submissionMapper::toDto)
                 .toList();
+    }
+
+    // Player and Claude are scored in exactly the same way.
+    private SubmissionResultDto scoreAndSave(Crossword crossword, List<String> submittedGrid,
+                                             boolean llmAssisted, int timeToSolveMs) {
+        // Computed here, never in the frontend, because only the backend has the answer key.
+        List<String> answerKeyGrid = crosswordMapper.toAnswerKeyGrid(crossword);
+        List<String> cellMarks = GridScorer.markCells(answerKeyGrid, submittedGrid);
+        int percentCorrect = GridScorer.percentCorrect(cellMarks);
+
+        CrosswordSubmission saved = submissionRepository.save(
+                submissionMapper.toEntity(crossword, submittedGrid, llmAssisted, timeToSolveMs, percentCorrect));
+        return new SubmissionResultDto(submissionMapper.toDto(saved), submittedGrid, cellMarks);
     }
 }

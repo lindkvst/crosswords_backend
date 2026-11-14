@@ -1,5 +1,7 @@
 package org.example.crosswords_backend.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -12,6 +14,8 @@ import java.time.LocalDateTime;
 @RestControllerAdvice
 public class ControllerExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(ControllerExceptionHandler.class);
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorMessage> notFound(ResourceNotFoundException ex, WebRequest request) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
@@ -20,6 +24,11 @@ public class ControllerExceptionHandler {
     @ExceptionHandler(InvalidSubmissionException.class)
     public ResponseEntity<ErrorMessage> invalidSubmission(InvalidSubmissionException ex, WebRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(ClaudeAnswerException.class)
+    public ResponseEntity<ErrorMessage> claudeAnswerUnusable(ClaudeAnswerException ex, WebRequest request) {
+        return build(HttpStatus.BAD_GATEWAY, ex.getMessage(), request);
     }
 
     @ExceptionHandler(CrosswordApiException.class)
@@ -32,6 +41,8 @@ public class ControllerExceptionHandler {
     // Only the status is passed on, never the upstream body or our request headers.
     @ExceptionHandler(WebClientResponseException.class)
     public ResponseEntity<ErrorMessage> externalCallFailed(WebClientResponseException ex, WebRequest request) {
+        // The upstream body explains the error (e.g. a wrong model name). Logged for us, not sent to the client.
+        log.warn("External API answered {}: {}", ex.getStatusCode().value(), ex.getResponseBodyAsString());
         return build(HttpStatus.BAD_GATEWAY, "External API answered with status " + ex.getStatusCode().value(), request);
     }
 
