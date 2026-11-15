@@ -15,7 +15,11 @@ Content-Type: application/json
 GET http://localhost:8080/api/users/me
 Authorization: Basic brugernavn adgangskode
 
-### Grid sizes to choose from
+### Grid sizes to choose from, with the number of layouts per size
+GET http://localhost:8080/api/grid-templates/sizes
+Authorization: Basic brugernavn adgangskode
+
+### All layouts (the backend picks one of the chosen size at random)
 GET http://localhost:8080/api/grid-templates
 Authorization: Basic brugernavn adgangskode
 
@@ -25,7 +29,7 @@ Authorization: Basic brugernavn adgangskode
 Content-Type: application/json
 
 {
-  "gridTemplateId": 1,
+  "gridSize": 5,
   "playerPrompt": "dyr i skoven"
 }
 

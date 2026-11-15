@@ -698,3 +698,20 @@ krydsord 2, 3, 4 og 6 selv, kun egne afleveringer kan vises.
 - `SubmissionService.submitByClaude`: `requireModelAllowed(model, user)`.
 - `UserService.register`: `requireValid(request)` og `requireUsernameFree(username)`.
 - Ingen ændret opførsel. Kørt: compile og alle 47 tests grønne.
+
+### Slice 16 – flere layouts pr. størrelse, backenden vælger tilfældigt
+- 17 layouts i alt: 6 af 5×5, 3 af 7×7, 4 af 9×9 og 4 af 13×13. De fleste er et eksisterende layout spejlet eller
+  transponeret (vendt om diagonalen). Det bevarer 180°-symmetrien og ordlængderne. Én ny 7×7 er fundet med søgescriptet.
+  Alle er tjekket af et Python-script og af testene.
+- `POST /api/crosswords` tager nu `{gridSize, playerPrompt}` i stedet for `gridTemplateId` (beslutning 78).
+  `GridTemplateService.findRandomBySize` vælger et tilfældigt layout af størrelsen. Ukendt størrelse → 404 før texs-kaldet.
+- Nyt endpoint `GET /api/grid-templates/sizes` → `[{size, layouts}]`, sorteret efter størrelse. `GET /api/grid-templates`
+  findes stadig. `GridTemplate.getSize()` er nyt.
+- Frontend: `templateSelect.js` er omdøbt til `sizeSelect.js`. Dropdownen viser "5 × 5 (6 layouts)" og sender `gridSize`.
+- Nye tests: layouts er kvadratiske, ingen løb på 2 fra 7×7, unikke navne og layouts, mindst 3 layouts pr. størrelse,
+  `/sizes` og ukendt størrelse → 404 uden texs-kald. 136 tests grønne (de fleste er de parametriserede layout-tests).
+- **Mutationstest:** mit første håndlavede 7×7-layout havde et løb på 2. Scriptet fandt det. Bagefter satte jeg det ind igen
+  som test af den nye test, og `hasNoRunsOfTwoFrom7x7Up` fejlede som den skulle. Filen er sat tilbage.
+- Kørt mod MySQL på port 8081 (din app kørte på 8080, og den har jeg ikke rørt): `InitData` indsatte 13 nye templates, de
+  4 gamle er uændrede. `/sizes` uden login → 401. Din app på 8080 skal genstartes for at få den nye kode.
+- IKKE kørt: oprettelse af et krydsord med de nye layouts mod texs (koster fills). Testene mocker texs.

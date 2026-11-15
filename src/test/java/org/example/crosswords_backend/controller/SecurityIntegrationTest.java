@@ -93,7 +93,7 @@ class SecurityIntegrationTest extends IntegrationTestBase {
     void creatingACrosswordRequiresLogin() throws Exception {
         mockMvc.perform(post("/api/crosswords")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"gridTemplateId\": 1}"))
+                        .content("{\"gridSize\": 5}"))
                 .andExpect(status().isUnauthorized());
         verifyNoInteractions(crosswordApiClient);
     }

@@ -54,7 +54,7 @@ public class CrosswordService {
     public CrosswordDto createCrossword(CreateCrosswordRequestDto request, String username) {
         AppUser user = userService.findEntityByUsername(username);
         // Everything that can fail on our side is checked before the fill, which costs one of the monthly quota.
-        GridTemplate template = gridTemplateService.findEntityById(request.gridTemplateId());
+        GridTemplate template = gridTemplateService.findRandomBySize(request.gridSize());
         String playerPrompt = validatedPrompt(request.playerPrompt());
 
         // Her fyldes et tomt grid ud med ord

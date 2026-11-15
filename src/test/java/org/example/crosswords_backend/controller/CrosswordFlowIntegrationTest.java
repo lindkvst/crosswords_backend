@@ -7,9 +7,7 @@ import org.example.crosswords_backend.dto.PuzzleDto;
 import org.example.crosswords_backend.gridlogic.GridWord;
 import org.example.crosswords_backend.gridlogic.GridWordFinder;
 import org.example.crosswords_backend.model.ClaudeModel;
-import org.example.crosswords_backend.model.GridTemplate;
 import org.example.crosswords_backend.model.Role;
-import org.example.crosswords_backend.repository.GridTemplateRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -41,25 +39,16 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
     private static final String PLAYER = "flow-player";
     private static final String ADMIN = "flow-admin";
 
-    // What the mocked texs "fills" the mini-5x5 template with. These letters are the answer key.
+    // What the mocked texs "fills" a 5x5 grid with, whichever 5x5 layout the backend picked. These letters are the answer key.
     private static final List<String> ANSWER_KEY = List.of("AB#CD", "EFGHI", "JKLMN", "OPQRS", "TU#VW");
 
     @Autowired
-    private GridTemplateRepository gridTemplateRepository;
-
-    @Autowired
     private ObjectMapper objectMapper;
-
-    private int miniTemplateId;
 
     @BeforeEach
     void setUp() {
         ensureUser(PLAYER, Role.PLAYER);
         ensureUser(ADMIN, Role.ADMIN);
-        miniTemplateId = gridTemplateRepository.findAll().stream()
-                .filter(template -> template.getName().equals("mini-5x5"))
-                .map(GridTemplate::getId)
-                .findFirst().orElseThrow();
         when(crosswordApiClient.fill(anyList())).thenReturn(new FillResponse(ANSWER_KEY, 8, 8, null));
         when(crosswordApiClient.fetchClues(anyList()))
                 .thenReturn(Map.of("AEJOT", List.of(new ApiClue("En ledetråd", "test"))));
@@ -92,13 +81,23 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    void unknownTemplateGives404WithoutUsingTheQuota() throws Exception {
+    void unknownSizeGives404WithoutUsingTheQuota() throws Exception {
         mockMvc.perform(post("/api/crosswords")
                         .with(httpBasic(PLAYER, PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"gridTemplateId\": 9999}"))
+                        .content("{\"gridSize\": 6}"))
                 .andExpect(status().isNotFound());
         verifyNoInteractions(crosswordApiClient);
+    }
+
+    @Test
+    void sizesListsEachSizeOnceWithItsNumberOfLayouts() throws Exception {
+        mockMvc.perform(get("/api/grid-templates/sizes").with(httpBasic(PLAYER, PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(4))
+                .andExpect(jsonPath("$[0].size").value(5))
+                .andExpect(jsonPath("$[0].layouts").value(6))
+                .andExpect(jsonPath("$[3].size").value(13));
     }
 
     @Test
@@ -170,7 +169,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
         return mockMvc.perform(post("/api/crosswords")
                         .with(httpBasic(PLAYER, PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"gridTemplateId\": " + miniTemplateId + ", \"playerPrompt\": " + themeJson + "}"))
+                        .content("{\"gridSize\": 5, \"playerPrompt\": " + themeJson + "}"))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
     }

@@ -3,12 +3,16 @@ package org.example.crosswords_backend.config;
 import org.example.crosswords_backend.gridlogic.GridWord;
 import org.example.crosswords_backend.gridlogic.GridWordFinder;
 import org.example.crosswords_backend.model.GridTemplate;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -57,6 +61,48 @@ class InitDataTemplatesTest {
                 }
             }
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("templates")
+    void isSquare(GridTemplate template) {
+        assertEquals(template.getSize(), template.getRows().get(0).length(), template.getName());
+    }
+
+    // From 7x7 up a run of 2 would look like a word but get no clue. 5x5 is allowed a few, covered by the other direction.
+    @ParameterizedTest
+    @MethodSource("templates")
+    void hasNoRunsOfTwoFrom7x7Up(GridTemplate template) {
+        if (template.getSize() < 7) {
+            return;
+        }
+        List<String> rows = template.getRows();
+        List<String> lines = new ArrayList<>(rows);
+        for (int col = 0; col < rows.size(); col++) {
+            StringBuilder column = new StringBuilder();
+            for (String row : rows) {
+                column.append(row.charAt(col));
+            }
+            lines.add(column.toString());
+        }
+        for (String line : lines) {
+            for (String run : line.split("#")) {
+                assertTrue(run.length() != 2, template.getName() + " has a run of 2 in " + line);
+            }
+        }
+    }
+
+    @Test
+    void namesAndLayoutsAreUnique() {
+        assertEquals(templates().size(), templates().stream().map(GridTemplate::getName).distinct().count());
+        assertEquals(templates().size(), templates().stream().map(GridTemplate::getLayout).distinct().count());
+    }
+
+    @Test
+    void everySizeHasAtLeastThreeLayouts() {
+        Map<Integer, Long> layoutsBySize = templates().stream()
+                .collect(Collectors.groupingBy(GridTemplate::getSize, Collectors.counting()));
+        layoutsBySize.forEach((size, count) -> assertTrue(count >= 3, size + "x" + size + " has " + count));
     }
 
     @ParameterizedTest

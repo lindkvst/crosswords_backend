@@ -48,4 +48,9 @@ public class GridTemplate {
     public List<String> getRows() {
         return List.of(layout.split("/"));
     }
+
+    // Every layout is square, so one number describes the size (5 for 5x5).
+    public int getSize() {
+        return getRows().size();
+    }
 }
