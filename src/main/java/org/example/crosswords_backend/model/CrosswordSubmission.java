@@ -29,6 +29,12 @@ public class CrosswordSubmission {
     @JoinColumn(name = "user_id")
     private AppUser user;
 
+    // The attempt the player's time was measured from. Empty for Claude, whose time is the length of its API call,
+    // and for submissions made before slice 22. One attempt can have several submissions (submit, fix, submit again).
+    @ManyToOne
+    @JoinColumn(name = "solve_attempt_id")
+    private SolveAttempt solveAttempt;
+
     // The submitted grid, in the same row format as the answer key.
     @Column(columnDefinition = "TEXT", nullable = false)
     private String submittedGridJson;
@@ -48,10 +54,11 @@ public class CrosswordSubmission {
         // required by JPA
     }
 
-    public CrosswordSubmission(Crossword crossword, AppUser user, String submittedGridJson,
-                             ClaudeModel llmModel, int timeToSolveMs, int percentCorrect) {
+    public CrosswordSubmission(Crossword crossword, AppUser user, SolveAttempt solveAttempt, String submittedGridJson,
+                               ClaudeModel llmModel, int timeToSolveMs, int percentCorrect) {
         this.crossword = crossword;
         this.user = user;
+        this.solveAttempt = solveAttempt;
         this.submittedGridJson = submittedGridJson;
         this.llmModel = llmModel;
         this.timeToSolveMs = timeToSolveMs;
@@ -69,6 +76,10 @@ public class CrosswordSubmission {
 
     public AppUser getUser() {
         return user;
+    }
+
+    public SolveAttempt getSolveAttempt() {
+        return solveAttempt;
     }
 
     public String getSubmittedGridJson() {

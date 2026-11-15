@@ -4,6 +4,7 @@ import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.ClaudeModel;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.CrosswordSubmission;
+import org.example.crosswords_backend.model.SolveAttempt;
 import org.example.crosswords_backend.service.EnergyEstimator;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -19,9 +20,10 @@ public class SubmissionMapper {
         this.objectMapper = objectMapper;
     }
 
-    public CrosswordSubmission toEntity(Crossword crossword, AppUser user, List<String> submittedGrid,
-                                        ClaudeModel llmModel, int timeToSolveMs, int percentCorrect) {
-        return new CrosswordSubmission(crossword, user, objectMapper.writeValueAsString(submittedGrid),
+    public CrosswordSubmission toEntity(Crossword crossword, AppUser user, SolveAttempt solveAttempt,
+                                        List<String> submittedGrid, ClaudeModel llmModel, int timeToSolveMs,
+                                        int percentCorrect) {
+        return new CrosswordSubmission(crossword, user, solveAttempt, objectMapper.writeValueAsString(submittedGrid),
                 llmModel, timeToSolveMs, percentCorrect);
     }
 

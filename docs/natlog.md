@@ -911,3 +911,14 @@ aldrig i git eller Notion, og en anden værdi i prod. Den, der kender nøglen, k
   at starte dev-profilen igen uden script-indstillingerne.
 - Tests: tid måles fra forsøget (venter 50 ms og sender `timeToSolveMs: 1` → gemt tid ≥ 50), andens forsøg → 403, forsøg
   for et andet krydsord → 404, uden `attemptId` → 400. 148 tests grønne. Frontend: `node --check`. IKKE testet i en browser.
+
+### Slice 23 – afleveringen peger på sit forsøg
+- Eriks spørgsmål: hvorfor er forsøget ikke knyttet til afleveringen? Svar: det burde det være. Forsøget kommer først, så
+  fremmednøglen går fra afleveringen til forsøget. Beslutning 92's fravalg er dermed omgjort (beslutning 93).
+- Ny kolonne `crossword_submission.solve_attempt_id` (FK til `solve_attempt`, kan være tom). Tom for Claude, hvis tid er
+  API-kaldets længde, og for afleveringer fra før slice 22. Et forsøg kan have 0 eller flere afleveringer.
+- `CrosswordSubmission.solveAttempt`, `SubmissionMapper.toEntity(...)` og `SubmissionService.save(...)` har fået forsøget med.
+- Test: en spillers aflevering peger på sit forsøg, og Claudes aflevering peger ikke på noget. 149 tests grønne.
+- Database: `docs/schema-mysql.sql` er genereret igen. Dev-profilen har tilføjet kolonnen og fremmednøglen i din MySQL
+  (port 8081). Bagefter bestod prod-profilens `validate`.
+- Alternativet uden tabel (en signeret "startbillet" til klienten, som et lille JWT) er nævnt for Erik, men fravalgt.

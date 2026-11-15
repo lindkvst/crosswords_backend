@@ -17,6 +17,7 @@ import org.example.crosswords_backend.exception.ResourceNotFoundException;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.CrosswordSubmission;
 import org.example.crosswords_backend.model.Role;
+import org.example.crosswords_backend.model.SolveAttempt;
 import org.example.crosswords_backend.repository.CrosswordSubmissionRepository;
 import org.springframework.stereotype.Service;
 
@@ -58,9 +59,9 @@ public class SubmissionService {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
         AppUser user = userService.findEntityByUsername(username);
         // Measured in the backend from when the crossword was opened, like Claude's time.
-        int timeToSolveMs = solveAttemptService.findOwnAttempt(request.attemptId(), crosswordId, username).elapsedMs();
+        SolveAttempt attempt = solveAttemptService.findOwnAttempt(request.attemptId(), crosswordId, username);
         List<String> cellMarks = markCells(crossword, request.grid());
-        CrosswordSubmission saved = save(crossword, user, request.grid(), null, timeToSolveMs, cellMarks);
+        CrosswordSubmission saved = save(crossword, user, attempt, request.grid(), null, attempt.elapsedMs(), cellMarks);
         return toResult(saved, request.grid(), cellMarks);
     }
 
@@ -73,7 +74,7 @@ public class SubmissionService {
         Timed<ClaudeSolution> solution = solveWithClaude(crossword, model);
         List<String> grid = solution.result().grid();
         List<String> cellMarks = markCells(crossword, grid);
-        CrosswordSubmission saved = save(crossword, user, grid, model, solution.ms(), cellMarks);
+        CrosswordSubmission saved = save(crossword, user, null, grid, model, solution.ms(), cellMarks);
         apiCallService.recordClaudeCall(crossword, saved, model, solution.ms(), solution.result());
         return toResult(saved, grid, cellMarks);
     }
@@ -130,12 +131,12 @@ public class SubmissionService {
         return GridScorer.markCells(crosswordMapper.toAnswerKeyGrid(crossword), submittedGrid);
     }
 
-    // llmModel is null for a player.
-    private CrosswordSubmission save(Crossword crossword, AppUser user, List<String> submittedGrid,
+    // A player has an attempt and no llmModel. Claude has an llmModel and no attempt.
+    private CrosswordSubmission save(Crossword crossword, AppUser user, SolveAttempt attempt, List<String> submittedGrid,
                                      ClaudeModel llmModel, int timeToSolveMs, List<String> cellMarks) {
         int percentCorrect = GridScorer.percentCorrect(cellMarks);
-        return submissionRepository.save(
-                submissionMapper.toEntity(crossword, user, submittedGrid, llmModel, timeToSolveMs, percentCorrect));
+        return submissionRepository.save(submissionMapper.toEntity(
+                crossword, user, attempt, submittedGrid, llmModel, timeToSolveMs, percentCorrect));
     }
 
     private SubmissionResultDto toResult(CrosswordSubmission saved, List<String> submittedGrid, List<String> cellMarks) {

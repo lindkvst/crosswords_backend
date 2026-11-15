@@ -8,6 +8,7 @@ import org.example.crosswords_backend.gridlogic.GridWord;
 import org.example.crosswords_backend.gridlogic.GridWordFinder;
 import org.example.crosswords_backend.model.ClaudeModel;
 import org.example.crosswords_backend.model.Role;
+import org.example.crosswords_backend.repository.CrosswordSubmissionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -20,7 +21,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -45,6 +48,9 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private CrosswordSubmissionRepository submissionRepository;
 
     @BeforeEach
     void setUp() {
@@ -183,6 +189,24 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    void aPlayerSubmissionPointsToItsAttemptAndClaudesToNone() throws Exception {
+        int id = idOf(createCrossword(null));
+        int attemptId = startAttempt(id, PLAYER);
+        int playerSubmissionId = submitWithAttempt(id, attemptId);
+        when(claudeApiClient.solveCrossword(any(), eq(ClaudeModel.CHEAP_AND_DUMB)))
+                .thenReturn(new ClaudeSolution(ANSWER_KEY, 1000, 200));
+        String claudeBody = mockMvc.perform(post("/api/crosswords/" + id + "/submissions/claude")
+                        .param("model", "CHEAP_AND_DUMB")
+                        .with(httpBasic(PLAYER, PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        int claudeSubmissionId = objectMapper.readTree(claudeBody).get("submission").get("id").asInt();
+
+        assertEquals(attemptId, submissionRepository.findById(playerSubmissionId).orElseThrow().getSolveAttempt().getId());
+        assertNull(submissionRepository.findById(claudeSubmissionId).orElseThrow().getSolveAttempt());
+    }
+
+    @Test
     void anotherPlayersAttemptGives403() throws Exception {
         int id = idOf(createCrossword(null));
         int adminsAttempt = startAttempt(id, ADMIN);
@@ -256,6 +280,17 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
                         .with(httpBasic(PLAYER, PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"grid\": " + grid + ", \"attemptId\": " + startAttempt(crosswordId, PLAYER) + "}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("submission").get("id").asInt();
+    }
+
+    private int submitWithAttempt(int crosswordId, int attemptId) throws Exception {
+        String body = mockMvc.perform(post("/api/crosswords/" + crosswordId + "/submissions")
+                        .with(httpBasic(PLAYER, PASSWORD))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"grid\": " + objectMapper.writeValueAsString(ANSWER_KEY)
+                                + ", \"attemptId\": " + attemptId + "}"))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(body).get("submission").get("id").asInt();
