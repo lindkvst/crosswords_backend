@@ -1039,3 +1039,15 @@ diagrammerne (kontekstdiagram, DFD, STRIDE).
   udfyldning. texs-kvoten er fælles for alle, så 5 pr. bruger beskytter mod én bruger, ikke mod mange.
 - Ny `DailyLimitIntegrationTest` (3) med lave grænser og fakes: 429 efter 2 krydsord, 429 efter 1 Claude-løsning, admin
   uden grænse. 164 tests grønne. Testprofilen har høje grænser, så de andre tests ikke stoppes.
+
+### Diagrammer (prioritet 3)
+- Ny Notion-underside "Systemdesign: kontekstdiagram, DFD og STRIDE": kontekstdiagram (niveau 0), DFD niveau 1 med seks
+  processer og seks datastores (balanceret mod niveau 0, notation som i S21) og en STRIDE-tabel med afværgelser og rest.
+  Facit-reglen kan ses i DFD'et: facit flyder kun fra D3 til scoring og aldrig ud til en ekstern enhed.
+- Klassediagrammerne er opdateret med slice 25–30. Beslutning 96–101 og refleksionsspørgsmål 78–83 ligger i Notion.
+
+### Del 4 – opsummering
+- Commits: `87310f5` (25), `9968dcf` (26), `1f1672e` (27), `e0f1e41` (28), `4b96f5c` (29), `f0376cc` (30). Kun backend.
+- 164 tests grønne. Intet pushet. Ingen kald til texs eller Anthropic.
+- Erik skal: genstarte backenden. Prøv gerne fake-mode i IntelliJ (`APP_CROSSWORD_SOURCE=fake`, `APP_CROSSWORD_SOLVER=fake`),
+  mens frontenden afprøves, og fjern dem før præsentationen.
