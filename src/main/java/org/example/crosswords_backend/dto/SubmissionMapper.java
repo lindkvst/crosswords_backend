@@ -4,6 +4,7 @@ import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.ClaudeModel;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.CrosswordSubmission;
+import org.example.crosswords_backend.service.EnergyEstimator;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
@@ -24,6 +25,14 @@ public class SubmissionMapper {
                 llmModel, timeToSolveMs, percentCorrect);
     }
 
+    // Computed from the stored time, so it needs no lookup. For Claude it matches the ApiCall row,
+    // because the measured duration of the call is the submission's time.
+    private double estimatedWh(CrosswordSubmission submission) {
+        return submission.getLlmModel() == null
+                ? EnergyEstimator.humanWh(submission.getTimeToSolveMs())
+                : EnergyEstimator.claudeWh(submission.getLlmModel(), submission.getTimeToSolveMs());
+    }
+
     public SubmissionDto toDto(CrosswordSubmission submission) {
         return new SubmissionDto(
                 submission.getId(),
@@ -33,6 +42,7 @@ public class SubmissionMapper {
                 submission.getLlmModel(),
                 submission.getTimeToSolveMs(),
                 submission.getPercentCorrect(),
+                estimatedWh(submission),
                 submission.getCreatedOn());
     }
 }

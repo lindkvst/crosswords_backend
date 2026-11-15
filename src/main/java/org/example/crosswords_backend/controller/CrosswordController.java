@@ -1,7 +1,9 @@
 package org.example.crosswords_backend.controller;
 
+import org.example.crosswords_backend.dto.ApiCallDto;
 import org.example.crosswords_backend.dto.CreateCrosswordRequestDto;
 import org.example.crosswords_backend.dto.CrosswordDto;
+import org.example.crosswords_backend.service.ApiCallService;
 import org.example.crosswords_backend.service.CrosswordService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,9 +22,11 @@ import java.util.List;
 public class CrosswordController {
 
     private final CrosswordService crosswordService;
+    private final ApiCallService apiCallService;
 
-    public CrosswordController(CrosswordService crosswordService) {
+    public CrosswordController(CrosswordService crosswordService, ApiCallService apiCallService) {
         this.crosswordService = crosswordService;
+        this.apiCallService = apiCallService;
     }
 
     @PostMapping
@@ -38,5 +42,13 @@ public class CrosswordController {
     @GetMapping("/{id}")
     public CrosswordDto findById(@PathVariable int id) {
         return crosswordService.findById(id);
+    }
+
+    // What creating and solving this crossword cost: one row per external call.
+    @GetMapping("/{id}/api-calls")
+    public List<ApiCallDto> findApiCalls(@PathVariable int id) {
+        // Called only for its 404 when the crossword does not exist.
+        crosswordService.findEntityById(id);
+        return apiCallService.findByCrossword(id);
     }
 }

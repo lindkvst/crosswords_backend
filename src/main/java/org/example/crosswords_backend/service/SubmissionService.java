@@ -1,6 +1,7 @@
 package org.example.crosswords_backend.service;
 
 import org.example.crosswords_backend.client.ClaudeApiClient;
+import org.example.crosswords_backend.client.ClaudeSolution;
 import org.example.crosswords_backend.dto.CrosswordMapper;
 import org.example.crosswords_backend.dto.PuzzleDto;
 import org.example.crosswords_backend.dto.SubmissionDto;
@@ -28,25 +29,31 @@ public class SubmissionService {
     private final SubmissionMapper submissionMapper;
     private final ClaudeApiClient claudeApiClient;
     private final UserService userService;
+    private final ApiCallService apiCallService;
 
     public SubmissionService(CrosswordService crosswordService,
                              CrosswordSubmissionRepository submissionRepository,
                              CrosswordMapper crosswordMapper,
                              SubmissionMapper submissionMapper,
                              ClaudeApiClient claudeApiClient,
-                             UserService userService) {
+                             UserService userService,
+                             ApiCallService apiCallService) {
         this.crosswordService = crosswordService;
         this.submissionRepository = submissionRepository;
         this.crosswordMapper = crosswordMapper;
         this.submissionMapper = submissionMapper;
         this.claudeApiClient = claudeApiClient;
         this.userService = userService;
+        this.apiCallService = apiCallService;
     }
 
     public SubmissionResultDto submitByPlayer(int crosswordId, SubmissionRequestDto request, String username) {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
         AppUser user = userService.findEntityByUsername(username);
-        return scoreAndSave(crossword, user, request.grid(), null, Math.max(0, request.timeToSolveMs()));
+        List<String> cellMarks = markCells(crossword, request.grid());
+        CrosswordSubmission saved = save(crossword, user, request.grid(), null,
+                Math.max(0, request.timeToSolveMs()), cellMarks);
+        return toResult(saved, request.grid(), cellMarks);
     }
 
     public SubmissionResultDto submitByClaude(int crosswordId, ClaudeModel model, String username) {
@@ -58,10 +65,13 @@ public class SubmissionService {
 
         // Here the backend measures the time itself, so it can be trusted (unlike the player's time).
         long start = System.currentTimeMillis();
-        List<String> claudeGrid = claudeApiClient.solveCrossword(puzzle, model);
+        ClaudeSolution solution = claudeApiClient.solveCrossword(puzzle, model);
         int timeToSolveMs = (int) (System.currentTimeMillis() - start);
 
-        return scoreAndSave(crossword, user, claudeGrid, model, timeToSolveMs);
+        List<String> cellMarks = markCells(crossword, solution.grid());
+        CrosswordSubmission saved = save(crossword, user, solution.grid(), model, timeToSolveMs, cellMarks);
+        apiCallService.recordClaudeCall(crossword, saved, model, timeToSolveMs, solution);
+        return toResult(saved, solution.grid(), cellMarks);
     }
 
     public List<SubmissionDto> findByCrossword(int crosswordId) {
@@ -72,16 +82,21 @@ public class SubmissionService {
                 .toList();
     }
 
-    // Player and Claude are scored in exactly the same way. llmModel is null for a player.
-    private SubmissionResultDto scoreAndSave(Crossword crossword, AppUser user, List<String> submittedGrid,
-                                             ClaudeModel llmModel, int timeToSolveMs) {
-        // Computed here, never in the frontend, because only the backend has the answer key.
-        List<String> answerKeyGrid = crosswordMapper.toAnswerKeyGrid(crossword);
-        List<String> cellMarks = GridScorer.markCells(answerKeyGrid, submittedGrid);
-        int percentCorrect = GridScorer.percentCorrect(cellMarks);
+    // Player and Claude are scored in exactly the same way.
+    // Computed here, never in the frontend, because only the backend has the answer key.
+    private List<String> markCells(Crossword crossword, List<String> submittedGrid) {
+        return GridScorer.markCells(crosswordMapper.toAnswerKeyGrid(crossword), submittedGrid);
+    }
 
-        CrosswordSubmission saved = submissionRepository.save(
+    // llmModel is null for a player.
+    private CrosswordSubmission save(Crossword crossword, AppUser user, List<String> submittedGrid,
+                                     ClaudeModel llmModel, int timeToSolveMs, List<String> cellMarks) {
+        int percentCorrect = GridScorer.percentCorrect(cellMarks);
+        return submissionRepository.save(
                 submissionMapper.toEntity(crossword, user, submittedGrid, llmModel, timeToSolveMs, percentCorrect));
+    }
+
+    private SubmissionResultDto toResult(CrosswordSubmission saved, List<String> submittedGrid, List<String> cellMarks) {
         return new SubmissionResultDto(submissionMapper.toDto(saved), submittedGrid, cellMarks);
     }
 }

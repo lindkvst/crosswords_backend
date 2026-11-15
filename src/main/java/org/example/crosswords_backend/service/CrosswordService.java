@@ -13,6 +13,7 @@ import org.example.crosswords_backend.exception.InvalidCrosswordRequestException
 import org.example.crosswords_backend.exception.ResourceNotFoundException;
 import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Crossword;
+import org.example.crosswords_backend.model.ExternalApi;
 import org.example.crosswords_backend.model.GridTemplate;
 import org.example.crosswords_backend.repository.CrosswordRepository;
 import org.example.crosswords_backend.gridlogic.GridWord;
@@ -34,17 +35,20 @@ public class CrosswordService {
     private final GridTemplateService gridTemplateService;
     private final CrosswordMapper mapper;
     private final UserService userService;
+    private final ApiCallService apiCallService;
 
     public CrosswordService(CrosswordApiClient apiClient,
                             CrosswordRepository crosswordRepository,
                             GridTemplateService gridTemplateService,
                             CrosswordMapper mapper,
-                            UserService userService) {
+                            UserService userService,
+                            ApiCallService apiCallService) {
         this.apiClient = apiClient;
         this.crosswordRepository = crosswordRepository;
         this.gridTemplateService = gridTemplateService;
         this.mapper = mapper;
         this.userService = userService;
+        this.apiCallService = apiCallService;
     }
 
     public CrosswordDto createCrossword(CreateCrosswordRequestDto request, String username) {
@@ -59,7 +63,9 @@ public class CrosswordService {
 
         // Each call costs one fill of the monthly quota.
         // Her fyldes et tomt grid ud med ord
+        long fillStart = System.currentTimeMillis();
         FillResponse fill = apiClient.fill(template.getRows());
+        int fillMs = (int) (System.currentTimeMillis() - fillStart);
         if (fill == null || fill.grid() == null || fill.slotsFilled() < fill.slotsTotal()) {
             String reason = fill == null ? "no response" : fill.reason();
             throw new CrosswordApiException("The crossword API could not fill the grid: " + reason);
@@ -68,7 +74,9 @@ public class CrosswordService {
         List<String> answerKeyGrid = fill.grid();
         List<GridWord> gridWords = GridWordFinder.findGridWords(answerKeyGrid);
         List<String> words = gridWords.stream().map(GridWord::word).toList();
+        long cluesStart = System.currentTimeMillis();
         Map<String, List<ApiClue>> cluesByWord = apiClient.fetchClues(words);
+        int cluesMs = (int) (System.currentTimeMillis() - cluesStart);
 
         // From here on the answers are dropped: a ClueDto has no word, and the grid is blanked.
         List<ClueDto> clues = gridWords.stream()
@@ -78,6 +86,9 @@ public class CrosswordService {
         PuzzleDto puzzle = new PuzzleDto(blankOut(answerKeyGrid), clues);
 
         Crossword saved = crosswordRepository.save(mapper.toEntity(template, user, playerPrompt, puzzle, answerKeyGrid));
+        // Recorded after the save, because a usage row must point to a crossword.
+        apiCallService.recordTexsCall(saved, ExternalApi.TEXS_FILL, fillMs);
+        apiCallService.recordTexsCall(saved, ExternalApi.TEXS_CLUES, cluesMs);
         return mapper.toDto(saved);
     }
 

@@ -52,7 +52,7 @@ public class ClaudeApiClient {
     }
 
     // Takes a PuzzleDto, which has no answers. That type is the guarantee that Claude never sees the answer key.
-    public List<String> solveCrossword(PuzzleDto puzzle, ClaudeModel model) {
+    public ClaudeSolution solveCrossword(PuzzleDto puzzle, ClaudeModel model) {
         ClaudeRequest request = new ClaudeRequest(
                 model.getModelId(),
                 MAX_TOKENS,
@@ -70,7 +70,10 @@ public class ClaudeApiClient {
 
         List<String> grid = parseGrid(answerText(response));
         checkShape(grid, puzzle.grid());
-        return grid;
+        ClaudeResponse.Usage usage = response.usage();
+        return usage == null
+                ? new ClaudeSolution(grid, null, null)
+                : new ClaudeSolution(grid, usage.inputTokens(), usage.outputTokens());
     }
 
     // Claude may think before it answers, so the answer is the text block, not necessarily the first block.

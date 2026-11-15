@@ -335,3 +335,68 @@ Ikke committet: `CLAUDE.md`, `NATBRIEF.md`, `night.env` (untracked, rørt ikke).
   - Er det i orden, at temaet kun vises, og vil du hellere have, at spilleren kan skrive ord ind, som låses i gitteret (58)?
   - Hvilke størrelser vil du have, og er 13×13 realistisk hos texs inden for 20 sekunder (57)?
   - Skal de to 500-fejl (415/404) rettes nu eller i V5.0 sammen med tests (64)?
+
+---
+
+# Del 2 – V4.0 til V6.0 (samme nat)
+
+Erik gav kl. ca. 01:27 lov til at fortsætte i roadmap'en til og med V6.0 og pegede på kino-projektet for CI/CD.
+Det tilsidesætter linjen "Ikke nu: ... (V4.0), (V5.0), (V6.0)" i CLAUDE.md for denne session. V7.0 (Docker) og
+senere er ikke rørt. Roadmap'en er læst i Notion ("3. semester - AI projekt" → Product Roadmap):
+- V4.0 større ERD: tabel med estimeret ressourceforbrug pr. API-kald vs. menneskets energiforbrug; brug af roles – hvad kan en admin?
+- V5.0 H2 og unit test.
+- V6.0 CI/CD: simpel og effektiv brug af Spring profiles til dev og prod.
+Kino-referencen: `kino_backend/.github/workflows` (maven-test som genbrugelig workflow, run-tests på push/PR,
+release + GHCR) og profilerne dev/prod/runnertest/test. Kun workflow-, properties- og testfiler er læst – ikke `.env`.
+
+### Hændelse ca. 01:30 – Erik kunne ikke kompilere
+- Erik byggede fra arbejdskopien, mens slice 10 var halvfærdig: `ClaudeApiClient` returnerede allerede `ClaudeSolution`,
+  men `SubmissionService` forventede stadig `List<String>`. Det committede var fint.
+- Rettet med det samme. Lære: kompilér efter hver filændring, ikke kun ved slicens afslutning. Gjort sådan resten af natten.
+- Erik spurgte også, hvorfor han ikke så frontend-ændringer: IntelliJ's Changes-vindue er tomt, fordi alt var committet.
+
+### Slice 10 – ressourceforbrug pr. API-kald (V4.0)
+- Start 01:28 (afbrudt af hændelsen ovenfor).
+- Ny tabel `api_call` (entity `ApiCall`): crossword (FK, påkrævet), submission (FK, kun Claude), `apiName`
+  (`ExternalApi`: TEXS_FILL, TEXS_CLUES, CLAUDE_SOLVE), `llmModel`, `durationMs`, `inputTokens`, `outputTokens`,
+  `estimatedWh`, `createdOn`.
+- Energi = watt × tid, ens for mennesker og maskiner (`EnergyEstimator`, beslutning 65). Hjerne 20 W, texs 50 W,
+  Claude 300/700/1400 W pr. model (`ClaudeModel.estimatedWatts`). Tid og tokens er målt; watt er antaget.
+- `ClaudeResponse` læser nu `usage.input_tokens/output_tokens`. `ClaudeApiClient.solveCrossword` returnerer `ClaudeSolution`
+  (grid + tokens).
+- `CrosswordService` måler fill og clues og gemmer to rækker efter krydsordet. `SubmissionService` gemmer én række pr.
+  Claude-løsning, koblet til afleveringen. `scoreAndSave` er delt i `markCells`, `save` og `toResult`, så Claude-rækken
+  kan pege på den gemte aflevering.
+- `SubmissionDto.estimatedWh` beregnes fra den gemte tid (spiller: hjerne, Claude: modellen), så der ikke skal slås op.
+- `GET /api/crosswords/{id}/api-calls` → liste af `ApiCallDto`. 404 for ukendt krydsord.
+- Frontend: tabel "Ressourceforbrug" under afleveringer (`resourceTable.js`, `energy.js`) med en række pr. kald og en
+  række pr. spiller-aflevering. Afleveringslisten viser "≈ 5,6 mWh".
+- Kørt: compile, curl (`/api-calls` → `[]` for krydsord 1 og 404 for ukendt, `estimatedWh` i afleveringer:
+  spiller 1 s → 0,0056 Wh, Haiku 13,9 s → 1,16 Wh), Hibernate oprettede `api_call`. `node --check` og id-tjek ok,
+  `formatWh` testet i node.
+- IKKE kørt: selve optagelsen af texs- og Claude-kald (kræver eksterne kald). Dækkes af tests med mocks i V5.0.
+- Opdaget: Hibernate 7 laver MySQL-kolonner af typen `enum('A','B',...)` for `@Enumerated(STRING)`.
+  Tilføjes en ny værdi til fx `ClaudeModel`, opdaterer `ddl-auto=update` ikke kolonnen → indsættelse fejler.
+  Gælder også den eksisterende `llm_model`. Noteret til Erik.
+- Begrænsning: et Claude-svar, der ikke kan bruges (`ClaudeAnswerException`), optages ikke, selvom tokens er brugt.
+- Slut 01:41.
+
+ERD efter V4.0 (nye/ændrede dele):
+
+```mermaid
+erDiagram
+    CROSSWORD ||--o{ API_CALL : "kostede"
+    CROSSWORD_SUBMISSION |o--o| API_CALL : "Claudes kald"
+    API_CALL {
+        int id PK
+        int crossword_id FK
+        int submission_id FK
+        enum api_name
+        enum llm_model
+        int duration_ms
+        int input_tokens
+        int output_tokens
+        double estimated_wh
+        datetime created_on
+    }
+```

@@ -13,6 +13,8 @@ public record SubmissionDto(
         ClaudeModel llmModel,
         int timeToSolveMs,
         int percentCorrect,
+        // Watts x time for the brain (player) or the model (Claude). An estimate, see EnergyEstimator.
+        double estimatedWh,
         LocalDateTime createdOn
 ) {
 }
