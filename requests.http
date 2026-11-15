@@ -1,14 +1,45 @@
-### Create a new crossword (uses one fill of the monthly quota)
+### Since V2.0 every call except register needs login (HTTP Basic).
+### Replace "brugernavn adgangskode" with a user you have registered. IntelliJ encodes it to Base64.
+
+### Register a new player (open, no login)
+POST http://localhost:8080/api/users/register
+Content-Type: application/json
+
+{
+  "username": "brugernavn",
+  "email": "mig@example.com",
+  "password": "adgangskode"
+}
+
+### The logged-in user
+GET http://localhost:8080/api/users/me
+Authorization: Basic brugernavn adgangskode
+
+### Grid sizes to choose from
+GET http://localhost:8080/api/grid-templates
+Authorization: Basic brugernavn adgangskode
+
+### Create a new crossword (uses one fill of the monthly quota). playerPrompt is optional.
 POST http://localhost:8080/api/crosswords
+Authorization: Basic brugernavn adgangskode
+Content-Type: application/json
+
+{
+  "gridTemplateId": 1,
+  "playerPrompt": "dyr i skoven"
+}
 
 ### List all saved crosswords (no quota used)
 GET http://localhost:8080/api/crosswords
+Authorization: Basic brugernavn adgangskode
 
 ### Get one crossword
 GET http://localhost:8080/api/crosswords/1
+Authorization: Basic brugernavn adgangskode
 
 ### Submit a filled-in grid for crossword 1 ('.' = empty cell, '#' = black cell)
 POST http://localhost:8080/api/crosswords/1/submissions
+Authorization: Basic brugernavn adgangskode
 Content-Type: application/json
 
 {
@@ -18,7 +49,9 @@ Content-Type: application/json
 
 ### List all submissions for crossword 1
 GET http://localhost:8080/api/crosswords/1/submissions
+Authorization: Basic brugernavn adgangskode
 
 ### Let Claude solve crossword 1. model is CHEAP_AND_DUMB, SMARTER_AND_PRICIER or TOTAL_TOKEN_KILLER.
 ### TOTAL_TOKEN_KILLER can take a few minutes.
 POST http://localhost:8080/api/crosswords/1/submissions/claude?model=CHEAP_AND_DUMB
+Authorization: Basic brugernavn adgangskode
