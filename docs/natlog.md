@@ -419,3 +419,31 @@ erDiagram
 - IKKE kørt mod MySQL: en rigtig admin (kræver `UPDATE app_user SET role = 'ADMIN'`, og miljøvariablerne til databasen
   må jeg ikke bruge). Admin-stien testes med MockMvc og H2 i V5.0.
 - Slut 01:45.
+
+### Slice 12 – H2 og tests (V5.0)
+- Start 01:45.
+- Ingen nye afhængigheder: H2 lå allerede i pom.xml (runtime), og `spring-security-test` kom med i slice 4.
+  `@AutoConfigureMockMvc` kører Spring Security-filtrene med (bevist af 401/403-testene).
+- `src/test/resources/application-test.properties`: H2 i hukommelsen med `MODE=MySQL`, `create-drop`, dummy-nøgler
+  og base-URL'er på port 1. Hver Spring-kontekst får sin egen database (`${random.uuid}`), så kontekster ikke sletter
+  hinandens tabeller.
+- 47 tests, alle grønne (`./mvnw test`, ca. 15 s, ingen MySQL, intet netværk):
+  - `GridScorerTest` (6): rigtig/forkert/tom/sort celle, små bogstaver, procent uden sorte felter, forkert størrelse → fejl.
+  - `GridWordFinderTest` (2): nummerering som i et trykt krydsord, løb under 3 ignoreres.
+  - `InitDataTemplatesTest` (16, parametriseret over alle 4 templates): ens rækkelængde, 180°-symmetri, hver hvid celle
+    i et ord, højst 13×13. Erstatter mit Python-tjek fra slice 7 med en test, der kører hver gang.
+  - `EnergyEstimatorTest` (3).
+  - `SecurityIntegrationTest` (12): register 201 uden hash, 409, 400; 401 som JSON uden `WWW-Authenticate`; forkert
+    password; ingen `Set-Cookie`; oprettelse kræver login (og texs kaldes ikke); preflight ok fra 63342 og 403 fra fremmed
+    origin; player → admin 403; admin → 200; player + TOTAL_TOKEN_KILLER → 403 og Claude kaldes aldrig.
+  - `CrosswordFlowIntegrationTest` (7, texs og Claude mocket med `@MockitoBean`): svaret indeholder ingen facit-rækker
+    eller facit-ord; Claude får kun `.` og `#` (ArgumentCaptor); score 100 % for Claude og 91 % for en spiller med to fejl;
+    texs- og Claude-kald optages med tokens; ukendt template → 404 uden texs-kald; admin må bruge Fable; forkert størrelse → 400.
+  - `CrosswordsBackendApplicationTests.contextLoads` kører nu med profilen `test`.
+- **Fejl fundet af testene:** `InitData.TEMPLATES` var en statisk liste af entity-objekter. `save()` sætter id på objektet,
+  så den næste Spring-kontekst i samme JVM prøvede at gemme "allerede gemte" objekter → `StaleObjectStateException`.
+  Rettet: `InitData.templates()` laver nye objekter ved hvert kald. Kunne i princippet også ramme en devtools-genstart.
+- **Mutationstest:** `blankOut` midlertidigt ændret til at returnere gitteret uændret → 2 tests fejlede
+  ("answer row leaked", "Claude saw letters"). Ændringen er fjernet igen med `git checkout -- CrosswordService.java`
+  (filen var uændret i forvejen). Testene vogter altså reelt facit-reglen.
+- Slut 01:58.
