@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -76,7 +77,10 @@ public class ClaudeApiClient {
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(ClaudeResponse.class)
-                .block(TIMEOUT);
+                // Same as with texs: a clear 502 instead of a 500 from block()'s own IllegalStateException.
+                .timeout(TIMEOUT, Mono.error(new ClaudeAnswerException(
+                        "Claude did not answer within " + TIMEOUT.toSeconds() + " seconds")))
+                .block();
     }
 
     // The token counts are only used for the resource table, so a missing usage block is not an error.

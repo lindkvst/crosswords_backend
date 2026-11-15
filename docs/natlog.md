@@ -954,3 +954,20 @@ aldrig i git eller Notion, og en anden værdi i prod. Den, der kender nøglen, k
   `ALTER TABLE app_user MODIFY email VARCHAR(255) NOT NULL; ALTER TABLE app_user ADD UNIQUE (email);`
   Hibernates `update` laver ikke kolonner om til `not null`.
 - Gør dig selv til admin med email: `UPDATE app_user SET role = 'ADMIN' WHERE email = '<din email>';`
+
+---
+
+# Del 4 – djævlens advokat: forbedringer fra systemdesign-faget
+
+Erik bad om en kritisk gennemgang ud fra slides i 3S - Systemudvikling (S03, S08 SOLID og design patterns, S21 structured
+analysis, S22 component-level design inkl. STRIDE, S23 metrics, S24 AI, GDPR og risk). Alle 13 decks er læst (tekst
+trukket ud af pptx). Erik valgte punkt 1–4 (dagligt loft, timeout på texs, DIP med en fake texs, PuzzleBuilder) og
+diagrammerne (kontekstdiagram, DFD, STRIDE).
+
+### Slice 25 – timeout på kald til texs og Claude
+- `CrosswordApiClient` brugte `.block()` uden grænse. Hang texs, hang requesten og en server-tråd. Nu `.timeout(40 s)`
+  (texs' `max_time` på 20 s plus luft) med `CrosswordApiException` → 502.
+- `ClaudeApiClient` havde `.block(300 s)`, som kastede `IllegalStateException` → 500. Nu `.timeout(300 s)` med
+  `ClaudeAnswerException` → 502, så frontenden får en forståelig fejl.
+- Kun kompileret og eksisterende tests kørt (grønne). Selve timeouten er ikke testet: det kræver en server, der ikke svarer,
+  og MockWebServer er fravalgt (beslutning 70).
