@@ -745,3 +745,73 @@ krydsord 2, 3, 4 og 6 selv, kun egne afleveringer kan vises.
 - Kørt: `node --check` på alle JS-filer, tjek af at alle id'er fra `index.js` findes i `index.html`, tjek af at HTML-tags
   er balancerede, og routerens logik i Node med et falsk DOM (7 tilfælde: logget ud, spiller, admin, ukendt side, samme #).
 - IKKE testet i en browser.
+
+## Del 3 – afslutning
+
+### Beslutninger
+| Nr | Valg | Begrundelse | Fravalgt | Status |
+|---|---|---|---|---|
+| 77 | Notion-reglen står i CLAUDE.md | Claude Code læser filen ved hver session. Enkelt at forstå og rette. | En hook, der minder om eller blokerer commits uden Notion-opdatering (mere maskineri). | Afventer Erik |
+| 78 | `POST /api/crosswords` tager `gridSize`, og backenden vælger et tilfældigt layout | Spilleren vil vælge størrelse, ikke sorte felter. Variation uden ny UI. | Spilleren vælger layout. Ny kolonne `size` i `grid_template` (skemaændring). | Afventer Erik |
+| 79 | Kun ejeren kan se en afleverings svar | Claudes 100 %-aflevering er i praksis facit. | Alle kan se alle. | Accepteret (Eriks valg) |
+| 80 | Heller ikke en admin kan se andres svar, og afleveringer uden ejer kan ikke vises | Enkleste regel. Admin har Stats til overblik. | Undtagelse for ADMIN. | Afventer Erik |
+| 81 | Én HTML-side med #-router | Login ligger i hukommelsen og overlever kun uden genindlæsning. | Separate HTML-filer + sessionStorage (ændrer beslutning 55). | Accepteret (Eriks valg) |
+| 82 | Kontaktside med projekt og GitHub-links | Ingen personlige oplysninger fundet på af Claude. | Email eller telefon. | Accepteret (Eriks valg) |
+| 83 | Layoutvarianter laves ved at spejle og transponere eksisterende layouts | Bevarer symmetri og ordlængder, så de er lige så lette for texs at fylde. Let at forklare. | Nye søgninger for hver størrelse (sværere at forklare og at teste mod texs). | Afventer Erik |
+| 84 | Spil kræver login, Stats kun admin, Home og Kontakt åbne. Stats hentes ved hvert besøg | Svarer til backendens regler. Friske tal. | Hente Stats én gang ved login (som før). | Afventer Erik |
+| 85 | Krydsord 2, 3, 4 og 6 slettes af Erik med SQL | CLAUDE.md forbyder Claude at slette i databasen. | At Claude sletter. At beholde dem. | Accepteret (Eriks valg) |
+
+### Refleksionsspørgsmål
+1. (Slice 15) `requireFilled(fill)` returnerer ingenting og kaster en exception. Hvorfor gør det metoden, der kalder den,
+   lettere at læse end en metode, der returnerer `true`/`false`? Hvor ender exceptionen, og hvilken HTTP-status bliver det?
+2. (Slice 15) Hvorfor tjekker `UserService` stadig brugernavnet både i `requireUsernameFree` og ved `save()`? Hvad ville du
+   miste ved at fjerne den ene?
+3. (Slice 16) Spejling og transponering af et layout bevarer 180°-symmetrien. Forklar hvorfor med et lille 3×3-eksempel.
+4. (Slice 16) `findRandomBySize` henter alle templates og filtrerer i Java. Hvornår ville det være forkert, og hvordan ville
+   du så gøre det i databasen?
+5. (Slice 16) Testene mocker texs, så de ved ikke, hvilket layout backenden valgte. Hvorfor består de alligevel, og hvad
+   tester de så ikke?
+6. (Slice 17) Hvorfor tjekker `findSubmission`, at afleveringen hører til krydsordet i URL'en? Hvad kunne man ellers
+   gøre med `/api/crosswords/1/submissions/7`?
+7. (Slice 17) Knappen "Vis svar" skjules for andres afleveringer. Hvorfor er `requireOwner` i backenden stadig nødvendig?
+8. (Slice 18) Hvorfor ville separate HTML-filer logge brugeren ud ved hvert klik i menuen? Hvad har det med beslutning 55
+   at gøre?
+9. (Slice 18) `canShow` i `index.js` skjuler Stats for spillere. Hvad sker der, hvis en spiller skriver `#stats` i adresselinjen?
+   Og hvis spilleren kalder `/api/admin/usage` direkte?
+
+### Ændrede filer pr. commit (del 3)
+Backend:
+- `6a36554` Slice 15: CrosswordService, SubmissionService, UserService, docs/natlog.md
+- `5ab2784` Slice 16: InitData, GridTemplate, GridSizeDto (ny), CreateCrosswordRequestDto, GridTemplateService,
+  GridTemplateController, CrosswordService, InitDataTemplatesTest, CrosswordFlowIntegrationTest, SecurityIntegrationTest,
+  requests.http, docs/natlog.md
+- `3cefdd3` Slice 17: NotOwnerException (ny), ControllerExceptionHandler, SubmissionMapper, SubmissionService,
+  SubmissionController, CrosswordFlowIntegrationTest, requests.http, docs/natlog.md
+- `7845a60` Slice 18: docs/natlog.md
+- Afslutning (dette commit): docs/natlog.md
+Frontend:
+- `9b5db68` Slice 16: index.html, js/index.js, js/api/crosswordApi.js, js/components/sizeSelect.js (omdøbt fra templateSelect.js)
+- `dd92d55` Slice 17: css/stylesheet.css, js/index.js, js/api/crosswordApi.js, js/components/submissionList.js
+- `17d60c9` Slice 18: index.html, css/stylesheet.css, js/index.js, js/router.js (ny)
+Ikke committet: CLAUDE.md (nyt afsnit "Notion"), NATBRIEF.md, night.env.
+
+### Hvad Erik skal gøre
+- **Genstart backenden.** Din app på port 8080 kører med den gamle kode. Frontenden sender nu `gridSize`, som den gamle
+  backend ikke kender (den vil svare 404 "No grid template with id 0").
+- **Slet krydsord 2, 3, 4 og 6** (dit valg). Rækkefølgen er vigtig på grund af fremmednøglerne. Tjek først, at det er de
+  rigtige: `SELECT id, grid_template_id, created_on FROM crossword WHERE id IN (2,3,4,6);`
+  ```sql
+  DELETE FROM api_call WHERE crossword_id IN (2,3,4,6);
+  DELETE FROM crossword_submission WHERE crossword_id IN (2,3,4,6);
+  DELETE FROM crossword WHERE id IN (2,3,4,6);
+  ```
+- **Browsertest:** menuen (Home, Spil, Kontakt, Stats som admin), at Spil kræver login, tilbage-knappen, "Vis svar" på din egen
+  aflevering (og at knappen mangler ved andres), dropdownen med størrelser og et nyt krydsord af hver størrelse (koster fills).
+- Alle punkter fra del 1 og 2 gælder stadig (admin via SQL, push og PR for CI, rigtige nøgler, x-api-key).
+
+### Procesdata (del 3)
+- Tid: cirka 05:00–05:40, inklusive spørgsmålene til Erik og Notion-reglen.
+- Fejl undervejs: mit håndlavede 7×7-layout havde et løb på 2 (fanget af scriptet, og bagefter brugt som mutationstest af
+  den nye test). Min første ejer-test forventede det forkerte bogstav. Min første app-start fejlede, fordi din app
+  allerede kørte på 8080. Jeg brugte 8081 i stedet og rørte ikke din proces.
+- Ingen kald til texs eller Anthropic. Intet pushet.
