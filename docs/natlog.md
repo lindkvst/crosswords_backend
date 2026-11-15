@@ -729,3 +729,19 @@ krydsord 2, 3, 4 og 6 selv, kun egne afleveringer kan vises.
 - Tests: ejeren ser sin aflevering, en admin får 403, forkert krydsord → 404. 139 tests grønne. Min første test forventede
   det forkerte bogstav (fejl i testen, ikke i koden).
 - Frontend: `node --check` ok. IKKE testet i en browser.
+
+### Slice 18 – navigation i frontend (kun frontend)
+- Én HTML-side med fire "sider" (`<div data-page>`): Home (intro og login), Spil (nyt krydsord, liste, løsning,
+  afleveringer), Kontakt og Stats (det tidligere admin-panel). Menuen i headeren bruger #-links (#home, #spil, #kontakt,
+  #stats). Eriks valg, beslutning 81.
+- Ny `js/router.js` (cirka 40 linjer): viser siden fra URL'ens #, markerer det aktive menupunkt med `aria-current`
+  og kalder en guard. Tilbage-knappen virker, fordi hvert sideskift er et nyt #.
+- Guard i `index.js` (beslutning 84): Home og Kontakt er åbne. Spil kræver login (ellers Home med "Log ind for at spille").
+  Stats kun for ADMIN, og menupunktet er skjult for andre. Stats hentes igen ved hvert besøg. Backenden svarer 401/403
+  alligevel, så det er kun bekvemmelighed.
+- Login → Spil. Log ud eller 401 → Home.
+- Kontakt: tekst om skoleprojektet (EK, 3. semester, AI-projektugen), links til texs og Anthropic og til de to repos under
+  lindkvst på GitHub. Ingen email eller telefon (beslutning 82).
+- Kørt: `node --check` på alle JS-filer, tjek af at alle id'er fra `index.js` findes i `index.html`, tjek af at HTML-tags
+  er balancerede, og routerens logik i Node med et falsk DOM (7 tilfælde: logget ud, spiller, admin, ukendt side, samme #).
+- IKKE testet i en browser.
