@@ -55,6 +55,10 @@ Content-Type: application/json
 GET http://localhost:8080/api/crosswords/1/submissions
 Authorization: Basic brugernavn adgangskode
 
+### Show one of your own submissions again (403 if it is someone else's)
+GET http://localhost:8080/api/crosswords/1/submissions/1
+Authorization: Basic brugernavn adgangskode
+
 ### Let Claude solve crossword 1. model is CHEAP_AND_DUMB, SMARTER_AND_PRICIER or TOTAL_TOKEN_KILLER.
 ### TOTAL_TOKEN_KILLER can take a few minutes.
 POST http://localhost:8080/api/crosswords/1/submissions/claude?model=CHEAP_AND_DUMB

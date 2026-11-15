@@ -164,6 +164,53 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void ownerCanShowTheirSubmissionAgainWithTheSameMarks() throws Exception {
+        int crosswordId = idOf(createCrossword(null));
+        int submissionId = submitAsPlayer(crosswordId);
+
+        mockMvc.perform(get("/api/crosswords/" + crosswordId + "/submissions/" + submissionId)
+                        .with(httpBasic(PLAYER, PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.submission.username").value(PLAYER))
+                .andExpect(jsonPath("$.submittedGrid[0]").value("AB#CX"))
+                .andExpect(jsonPath("$.cellMarks.length()").value(5));
+    }
+
+    @Test
+    void anotherUserCannotSeeTheSubmissionEvenAsAdmin() throws Exception {
+        int crosswordId = idOf(createCrossword(null));
+        int submissionId = submitAsPlayer(crosswordId);
+
+        mockMvc.perform(get("/api/crosswords/" + crosswordId + "/submissions/" + submissionId)
+                        .with(httpBasic(ADMIN, PASSWORD)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("You can only see your own submissions"));
+    }
+
+    @Test
+    void submissionUnderTheWrongCrosswordGives404() throws Exception {
+        int crosswordId = idOf(createCrossword(null));
+        int otherCrosswordId = idOf(createCrossword(null));
+        int submissionId = submitAsPlayer(crosswordId);
+
+        mockMvc.perform(get("/api/crosswords/" + otherCrosswordId + "/submissions/" + submissionId)
+                        .with(httpBasic(PLAYER, PASSWORD)))
+                .andExpect(status().isNotFound());
+    }
+
+    // A full answer with one wrong letter in the first row.
+    private int submitAsPlayer(int crosswordId) throws Exception {
+        String grid = objectMapper.writeValueAsString(List.of("AB#CX", "EFGHI", "JKLMN", "OPQRS", "TU#VW"));
+        String body = mockMvc.perform(post("/api/crosswords/" + crosswordId + "/submissions")
+                        .with(httpBasic(PLAYER, PASSWORD))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"grid\": " + grid + ", \"timeToSolveMs\": 1000}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("submission").get("id").asInt();
+    }
+
     private String createCrossword(String theme) throws Exception {
         String themeJson = theme == null ? "null" : "\"" + theme + "\"";
         return mockMvc.perform(post("/api/crosswords")

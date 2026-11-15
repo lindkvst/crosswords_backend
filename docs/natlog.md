@@ -715,3 +715,17 @@ krydsord 2, 3, 4 og 6 selv, kun egne afleveringer kan vises.
 - Kørt mod MySQL på port 8081 (din app kørte på 8080, og den har jeg ikke rørt): `InitData` indsatte 13 nye templates, de
   4 gamle er uændrede. `/sizes` uden login → 401. Din app på 8080 skal genstartes for at få den nye kode.
 - IKKE kørt: oprettelse af et krydsord med de nye layouts mod texs (koster fills). Testene mocker texs.
+
+### Slice 17 – "Vis svar" på egne afleveringer
+- Nyt endpoint `GET /api/crosswords/{crosswordId}/submissions/{submissionId}` → `SubmissionResultDto` (aflevering, de skrevne
+  bogstaver og grønne/røde markeringer, regnet på samme måde som da afleveringen blev lavet).
+- Kun ejeren må se den (Eriks valg, beslutning 79). Ny `NotOwnerException` → 403. Gælder også en admin. En Claude-aflevering
+  tilhører den, der bad Claude løse. Afleveringer fra før V2.0 har ingen ejer og kan ikke vises.
+- En aflevering findes kun under sit eget krydsord. Forkert kombination → 404.
+- `SubmissionService.findOwnSubmission` bruger de private `findSubmission` og `requireOwner` (samme mønster som slice 15).
+  `SubmissionMapper.toSubmittedGrid` er ny.
+- Frontend: knappen "Vis svar" vises kun ved egne afleveringer (sammenligner `username` med den indloggede). Klik fylder
+  gitteret og farver cellerne. Knappen er kun bekvemmelighed: backenden afviser alligevel.
+- Tests: ejeren ser sin aflevering, en admin får 403, forkert krydsord → 404. 139 tests grønne. Min første test forventede
+  det forkerte bogstav (fejl i testen, ikke i koden).
+- Frontend: `node --check` ok. IKKE testet i en browser.

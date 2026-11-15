@@ -47,6 +47,13 @@ public class SubmissionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
+    @GetMapping("/{submissionId}")
+    public SubmissionResultDto findOwnSubmission(@PathVariable int crosswordId,
+                                                 @PathVariable int submissionId,
+                                                 Principal principal) {
+        return submissionService.findOwnSubmission(crosswordId, submissionId, principal.getName());
+    }
+
     @GetMapping
     public List<SubmissionDto> findByCrosswordId(@PathVariable int crosswordId) {
         return submissionService.findByCrossword(crosswordId);

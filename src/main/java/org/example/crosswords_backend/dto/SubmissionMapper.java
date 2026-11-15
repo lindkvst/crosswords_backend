@@ -25,6 +25,11 @@ public class SubmissionMapper {
                 llmModel, timeToSolveMs, percentCorrect);
     }
 
+    // The letters the player or Claude wrote. Their own guess, not the answer key.
+    public List<String> toSubmittedGrid(CrosswordSubmission submission) {
+        return List.of(objectMapper.readValue(submission.getSubmittedGridJson(), String[].class));
+    }
+
     // Computed from the stored time, so it needs no lookup. For Claude it matches the ApiCall row,
     // because the measured duration of the call is the submission's time.
     private double estimatedWh(CrosswordSubmission submission) {

@@ -34,6 +34,11 @@ public class ControllerExceptionHandler {
         return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(NotOwnerException.class)
+    public ResponseEntity<ErrorMessage> notOwner(NotOwnerException ex, WebRequest request) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(InvalidCrosswordRequestException.class)
     public ResponseEntity<ErrorMessage> invalidCrosswordRequest(InvalidCrosswordRequestException ex, WebRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
