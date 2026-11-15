@@ -19,6 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -139,14 +140,15 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
     @Test
     void playerSubmissionIsScoredAndCarriesTheUsername() throws Exception {
         int id = idOf(createCrossword(null));
+        int attemptId = startAttempt(id, PLAYER);
 
         // Two wrong letters out of 23 letter cells: 21/23 = 91 %.
         mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
                         .with(httpBasic(PLAYER, PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"grid": ["XX#CD", "EFGHI", "JKLMN", "OPQRS", "TU#VW"], "timeToSolveMs": 60000}
-                                """))
+                                {"grid": ["XX#CD", "EFGHI", "JKLMN", "OPQRS", "TU#VW"], "attemptId": %d}
+                                """.formatted(attemptId)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.submission.percentCorrect").value(91))
                 .andExpect(jsonPath("$.submission.username").value(PLAYER))
@@ -160,7 +162,55 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
                         .with(httpBasic(PLAYER, PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"grid\": [\"AB#CD\"], \"timeToSolveMs\": 1}"))
+                        .content("{\"grid\": [\"AB#CD\"], \"attemptId\": " + startAttempt(id, PLAYER) + "}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    // A time sent by the browser is ignored: the backend measures from when the attempt started.
+    @Test
+    void playerTimeIsMeasuredFromTheAttemptNotTakenFromTheBrowser() throws Exception {
+        int id = idOf(createCrossword(null));
+        int attemptId = startAttempt(id, PLAYER);
+        Thread.sleep(50);
+
+        mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
+                        .with(httpBasic(PLAYER, PASSWORD))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"grid\": " + objectMapper.writeValueAsString(ANSWER_KEY)
+                                + ", \"attemptId\": " + attemptId + ", \"timeToSolveMs\": 1}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.submission.timeToSolveMs").value(greaterThanOrEqualTo(50)));
+    }
+
+    @Test
+    void anotherPlayersAttemptGives403() throws Exception {
+        int id = idOf(createCrossword(null));
+        int adminsAttempt = startAttempt(id, ADMIN);
+
+        mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
+                        .with(httpBasic(PLAYER, PASSWORD))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"grid\": " + objectMapper.writeValueAsString(ANSWER_KEY)
+                                + ", \"attemptId\": " + adminsAttempt + "}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void anAttemptForAnotherCrosswordGives404AndNoAttemptGives400() throws Exception {
+        int id = idOf(createCrossword(null));
+        int otherId = idOf(createCrossword(null));
+        int attemptForOther = startAttempt(otherId, PLAYER);
+        String grid = objectMapper.writeValueAsString(ANSWER_KEY);
+
+        mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
+                        .with(httpBasic(PLAYER, PASSWORD))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"grid\": " + grid + ", \"attemptId\": " + attemptForOther + "}"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
+                        .with(httpBasic(PLAYER, PASSWORD))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"grid\": " + grid + "}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -205,10 +255,18 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
         String body = mockMvc.perform(post("/api/crosswords/" + crosswordId + "/submissions")
                         .with(httpBasic(PLAYER, PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"grid\": " + grid + ", \"timeToSolveMs\": 1000}"))
+                        .content("{\"grid\": " + grid + ", \"attemptId\": " + startAttempt(crosswordId, PLAYER) + "}"))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(body).get("submission").get("id").asInt();
+    }
+
+    private int startAttempt(int crosswordId, String username) throws Exception {
+        String body = mockMvc.perform(post("/api/crosswords/" + crosswordId + "/attempts")
+                        .with(httpBasic(username, PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("id").asInt();
     }
 
     private String createCrossword(String theme) throws Exception {

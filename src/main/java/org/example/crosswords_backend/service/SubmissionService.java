@@ -34,6 +34,7 @@ public class SubmissionService {
     private final ClaudeApiClient claudeApiClient;
     private final UserService userService;
     private final ApiCallService apiCallService;
+    private final SolveAttemptService solveAttemptService;
 
     public SubmissionService(CrosswordService crosswordService,
                              CrosswordSubmissionRepository submissionRepository,
@@ -41,7 +42,8 @@ public class SubmissionService {
                              SubmissionMapper submissionMapper,
                              ClaudeApiClient claudeApiClient,
                              UserService userService,
-                             ApiCallService apiCallService) {
+                             ApiCallService apiCallService,
+                             SolveAttemptService solveAttemptService) {
         this.crosswordService = crosswordService;
         this.submissionRepository = submissionRepository;
         this.crosswordMapper = crosswordMapper;
@@ -49,14 +51,16 @@ public class SubmissionService {
         this.claudeApiClient = claudeApiClient;
         this.userService = userService;
         this.apiCallService = apiCallService;
+        this.solveAttemptService = solveAttemptService;
     }
 
     public SubmissionResultDto submitByPlayer(int crosswordId, SubmissionRequestDto request, String username) {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
         AppUser user = userService.findEntityByUsername(username);
+        // Measured in the backend from when the crossword was opened, like Claude's time.
+        int timeToSolveMs = solveAttemptService.findOwnAttempt(request.attemptId(), crosswordId, username).elapsedMs();
         List<String> cellMarks = markCells(crossword, request.grid());
-        CrosswordSubmission saved = save(crossword, user, request.grid(), null,
-                Math.max(0, request.timeToSolveMs()), cellMarks);
+        CrosswordSubmission saved = save(crossword, user, request.grid(), null, timeToSolveMs, cellMarks);
         return toResult(saved, request.grid(), cellMarks);
     }
 

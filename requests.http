@@ -48,14 +48,21 @@ Authorization: Basic brugernavn adgangskode
 GET http://localhost:8080/api/crosswords/1
 Authorization: Basic brugernavn adgangskode
 
-### Submit a filled-in grid for crossword 1 ('.' = empty cell, '#' = black cell)
+### Start the clock for crossword 1 (the frontend does this when the crossword is shown)
+POST http://localhost:8080/api/crosswords/1/attempts
+Authorization: Basic brugernavn adgangskode
+
+> {% client.global.set("attemptId", response.body.id); %}
+
+### Submit a filled-in grid for crossword 1 ('.' = empty cell, '#' = black cell).
+### The backend measures the time from the attempt above.
 POST http://localhost:8080/api/crosswords/1/submissions
 Authorization: Basic brugernavn adgangskode
 Content-Type: application/json
 
 {
   "grid": ["AB#CD", "EFGHI", "JKLMN", "OPQRS", "TU#VW"],
-  "timeToSolveMs": 42000
+  "attemptId": {{attemptId}}
 }
 
 ### List all submissions for crossword 1

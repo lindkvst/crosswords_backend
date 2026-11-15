@@ -890,3 +890,24 @@ aldrig i git eller Notion, og en anden værdi i prod. Den, der kender nøglen, k
 - `GridScorer`: `requireSameRowCount`, `markRow`. `percentCorrect` tæller med `chars().filter(...)` i stedet for to løkker.
 - Ikke ændret: `InitData.templates()` (data) og `SecurityConfig` (DSL, læses som en liste af regler).
 - Ingen ændret opførsel: 145 tests grønne.
+
+### Slice 22 – menneskets tid måles i backenden (ny tabel `solve_attempt`)
+- Eriks ønske, efter forklaringen af hvorfor tiden kom fra browseren (refleksionsspørgsmål 15).
+- Ny tabel `solve_attempt` (entity `SolveAttempt`): `id`, `crossword_id` (FK), `user_id` (FK), `started_on` (serverens ur,
+  `datetime(6)`). `SolveAttempt.elapsedMs()` regner "nu − started_on", højst `Integer.MAX_VALUE`.
+- `POST /api/crosswords/{id}/attempts` → 201 `{id, crosswordId, startedOn}`. Frontenden kalder det, hver gang et krydsord vises.
+- `SubmissionRequestDto` er nu `{grid, attemptId}`. `timeToSolveMs` fra browseren findes ikke længere, og sender man feltet
+  alligevel, bliver det ignoreret (testet). `SolveAttemptService.findOwnAttempt`: forsøg for et andet krydsord → 404, en
+  anden spillers forsøg → 403 (`NotOwnerException`), manglende `attemptId` → 400 (Jackson 3 afviser et manglende `int`
+  i en record).
+- Afleveringen peger ikke på forsøget (ingen ny kolonne i `crossword_submission`) (beslutning 92). Et forsøg kan bruges til
+  flere afleveringer, og den anden får så den samlede tid. Man kan kun gøre sin tid længere ved at snyde med starten.
+- Frontend: `startedAt` er fjernet. `showCrossword` starter et forsøg (`startClock`) samtidig med at afleveringerne hentes.
+- **SQL:** `docs/schema-mysql.sql` er hele MySQL-skemaet, genereret af Hibernate fra entities. Det skal bruges i prod, hvor
+  `validate` ikke opretter noget. I dev har `ddl-auto=update` oprettet `solve_attempt` i din MySQL (kørt på port 8081).
+  Bagefter bestod prod-profilens `validate` mod samme database.
+- **Fejl undervejs:** min første kørsel genererede SQL-filen, men oprettede ikke tabellen, fordi Hibernate springer `update`
+  over, når den skal skrive et script. `validate` i prod-profilen fangede det ("missing table [solve_attempt]"). Rettet ved
+  at starte dev-profilen igen uden script-indstillingerne.
+- Tests: tid måles fra forsøget (venter 50 ms og sender `timeToSolveMs: 1` → gemt tid ≥ 50), andens forsøg → 403, forsøg
+  for et andet krydsord → 404, uden `attemptId` → 400. 148 tests grønne. Frontend: `node --check`. IKKE testet i en browser.
