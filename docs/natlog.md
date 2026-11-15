@@ -55,3 +55,20 @@ Skrevet af Claude Code undervejs i natten. Tider er lokal tid (CET).
 - Fundet, ikke rettet: en ukendt sti med login (`/api/nothing`) giver 500 i stedet for 404, fordi `everythingElse`
   fanger `NoResourceFoundException`. Samme opførsel som før V2.0. Noteret til Erik.
 - Slut 01:15.
+
+### Slice 6 – login i frontend
+- Start 01:15.
+- Nyt i frontend: `js/auth.js` (credentials i en modul-variabel, beslutning 55), `js/components/authForms.js`
+  (login- og registreringsformular). `crosswordApi.js`: `request()` sender `Authorization: Basic ...`, glemmer
+  credentials og kalder en 401-handler ved 401; nye funktioner `registerUser` og `fetchMe`.
+- `index.js`: siden starter med login. Login tjekkes med `GET /api/users/me`. Registrering logger ind bagefter.
+  "Log ud" glemmer credentials. Enhver 401 viser login igen.
+- Basic-headeren bygges fra UTF-8-bytes, fordi `btoa` ikke tåler æ/ø/å (beslutning 56).
+- CSS: `[hidden] { display: none !important; }`, fordi `display: flex` ellers overstyrer `hidden`-attributten
+  (fanget ved gennemlæsning, ikke i en browser).
+- Afleveringslisten viser brugernavn (og "startet af" for Claude).
+- Kørt: `node --check` på alle JS-filer (ok). Frontend er IKKE testet i en browser.
+- Kørt med curl mod backend: register (med æøå i password) → 201, `/me` med UTF-8-Basic → 200, uden → 401,
+  forkert password → 401, OPTIONS-preflight → CORS-headere, `POST /api/crosswords` uden login → 401.
+- Ingen kald til texs eller Anthropic.
+- Slut 01:17.
