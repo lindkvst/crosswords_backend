@@ -52,11 +52,31 @@ class SecurityIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    void registeringATakenEmailGives409EvenInOtherCase() throws Exception {
+        mockMvc.perform(post("/api/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"someone\", \"email\": \"" + emailOf(PLAYER).toUpperCase()
+                                + "\", \"password\": \"abc\"}"))
+                .andExpect(status().isConflict());
+    }
+
+    // The username is unique like a gamer tag, but it is not the identity (that is the id).
+    @Test
     void registeringATakenUsernameGives409() throws Exception {
         mockMvc.perform(post("/api/users/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\": \"" + PLAYER + "\", \"email\": \"x@example.com\", \"password\": \"abc\"}"))
-                .andExpect(status().isConflict());
+                        .content("{\"username\": \"" + PLAYER + "\", \"email\": \"twin@example.com\", \"password\": \"abc\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("The username is already taken"));
+    }
+
+    @Test
+    void loginUsesTheEmailInAnyCaseAndNotTheUsername() throws Exception {
+        mockMvc.perform(get("/api/users/me").with(httpBasic(emailOf(PLAYER).toUpperCase(), PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value(PLAYER));
+        mockMvc.perform(get("/api/users/me").with(httpBasic(PLAYER, PASSWORD)))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -77,13 +97,13 @@ class SecurityIntegrationTest extends IntegrationTestBase {
 
     @Test
     void wrongPasswordGives401() throws Exception {
-        mockMvc.perform(get("/api/users/me").with(httpBasic(PLAYER, "wrong")))
+        mockMvc.perform(get("/api/users/me").with(httpBasic(emailOf(PLAYER), "wrong")))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void loggedInUserGetsThemselvesAndNoSessionCookie() throws Exception {
-        mockMvc.perform(get("/api/users/me").with(httpBasic(PLAYER, PASSWORD)))
+        mockMvc.perform(get("/api/users/me").with(httpBasic(emailOf(PLAYER), PASSWORD)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value(PLAYER))
                 .andExpect(header().doesNotExist("Set-Cookie"));
@@ -118,17 +138,17 @@ class SecurityIntegrationTest extends IntegrationTestBase {
 
     @Test
     void playerCannotUseAdminEndpoints() throws Exception {
-        mockMvc.perform(get("/api/admin/users").with(httpBasic(PLAYER, PASSWORD)))
+        mockMvc.perform(get("/api/admin/users").with(httpBasic(emailOf(PLAYER), PASSWORD)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.statusCode").value(403));
     }
 
     @Test
     void adminCanSeeUsersAndUsage() throws Exception {
-        mockMvc.perform(get("/api/admin/users").with(httpBasic(ADMIN, PASSWORD)))
+        mockMvc.perform(get("/api/admin/users").with(httpBasic(emailOf(ADMIN), PASSWORD)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.username == '" + ADMIN + "')].role").value("ADMIN"));
-        mockMvc.perform(get("/api/admin/usage").with(httpBasic(ADMIN, PASSWORD)))
+        mockMvc.perform(get("/api/admin/usage").with(httpBasic(emailOf(ADMIN), PASSWORD)))
                 .andExpect(status().isOk());
     }
 
@@ -140,7 +160,7 @@ class SecurityIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(post("/api/crosswords/" + crossword.getId() + "/submissions/claude")
                         .param("model", "TOTAL_TOKEN_KILLER")
-                        .with(httpBasic(PLAYER, PASSWORD)))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD)))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(claudeApiClient);
     }

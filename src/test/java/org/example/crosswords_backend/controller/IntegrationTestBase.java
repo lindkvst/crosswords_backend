@@ -38,11 +38,15 @@ abstract class IntegrationTestBase {
     @MockitoBean
     ClaudeApiClient claudeApiClient;
 
+    // Users log in with their email. In the tests it is made from the username.
+    static String emailOf(String username) {
+        return username + "@example.com";
+    }
+
     // Saved straight to the database, because the API can only create players.
     void ensureUser(String username, Role role) {
-        if (!appUserRepository.existsByUsername(username)) {
-            appUserRepository.save(new AppUser(username, username + "@example.com",
-                    passwordEncoder.encode(PASSWORD), role));
+        if (!appUserRepository.existsByEmail(emailOf(username))) {
+            appUserRepository.save(new AppUser(username, emailOf(username), passwordEncoder.encode(PASSWORD), role));
         }
     }
 }

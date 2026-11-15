@@ -31,7 +31,7 @@ public class CrosswordController {
 
     @PostMapping
     public ResponseEntity<CrosswordDto> create(@RequestBody CreateCrosswordRequestDto request, Principal principal) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(crosswordService.createCrossword(request, principal.getName()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(crosswordService.createCrossword(request, CurrentUser.id(principal)));
     }
 
     @GetMapping

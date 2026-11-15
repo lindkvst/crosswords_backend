@@ -59,6 +59,11 @@ public class ControllerExceptionHandler {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(EmailTakenException.class)
+    public ResponseEntity<ErrorMessage> emailTaken(EmailTakenException ex, WebRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
     // E.g. ?model=EXPENSIVE, which is not one of the enum values.
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorMessage> invalidParameter(MethodArgumentTypeMismatchException ex, WebRequest request) {

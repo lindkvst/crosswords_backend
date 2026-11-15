@@ -930,3 +930,27 @@ aldrig i git eller Notion, og en anden værdi i prod. Den, der kender nøglen, k
   og ny `DATABASE_URL`). Claude sletter ikke i databasen (CLAUDE.md regel 6).
 - V1-backenden kan efter alt at dømme stadig bruge en database med det nye skema, fordi ændringerne kun tilføjer
   (nye tabeller og kolonner, der kan være tomme). Ikke testet.
+
+### Slice 24 – login med email, og identiteten er brugerens id
+- Eriks ønske: email er unik og bruges til login. Brugernavnet er et gamer-navn, som gerne må være unikt, men ikke er
+  identiteten. Identiteten er det genererede id, så brugernavn og email senere kan ændres (beslutning 95).
+- `AppUserDetailsService.loadUserByUsername(email)` finder brugeren på email (små bogstaver) og giver Spring brugerens
+  **id** som navn. Derfor er `principal.getName()` id'et både efter Basic og efter JWT (`sub` laves af samme navn).
+  Ny `controller/CurrentUser.id(principal)`. Alle services tager `int userId` i stedet for et brugernavn, og
+  ejerskabstjek (afleveringer, forsøg) sammenligner id'er.
+- `AppUser.email` er `unique` og `not null`. `username` er stadig `unique`. `UserService`: `normalizeEmail`,
+  `requireEmailFree` (409 "The email is already registered"), `requireUsernameFree` (409), en simpel tjek af `@` (400),
+  `findById` og `findEntityById` (erstatter `findByUsername`). `AppUserRepository`: `findByEmail`, `existsByEmail`,
+  `existsByUsername`. Ny `EmailTakenException`.
+- `SubmissionDto` har fået `userId`. Frontenden viser "Vis svar" ved at sammenligne id'er, ikke navne.
+- Frontend: login-formularen beder om email. Registreringen skriver "Brugernavn (vises for andre)" og "Email (bruges til
+  login)". Efter registrering logges der ind med email.
+- **Testfejl fundet:** testen "et ændret token giver 401" ændrede nogle gange slet ikke tokenet (den erstattede et tegn med
+  sig selv). Det viste sig først nu, fordi `sub` skiftede til et id. Testen ændrer nu altid et tegn midt i signaturen.
+- Tests: login med email i vilkårlig case virker, login med brugernavn giver 401, taget email (også med store bogstaver)
+  → 409, taget brugernavn → 409. Alle andre tests logger nu ind med email. 151 tests grønne.
+- `docs/schema-mysql.sql` er genereret igen (email unik og not null). Ingen `update` er kørt mod MySQL i dette slice.
+  **Hvis du allerede har startet appen mod `crosswords_v6`, så opret den tom igen** (den er stadig tom), eller kør:
+  `ALTER TABLE app_user MODIFY email VARCHAR(255) NOT NULL; ALTER TABLE app_user ADD UNIQUE (email);`
+  Hibernates `update` laver ikke kolonner om til `not null`.
+- Gør dig selv til admin med email: `UPDATE app_user SET role = 'ADMIN' WHERE email = '<din email>';`

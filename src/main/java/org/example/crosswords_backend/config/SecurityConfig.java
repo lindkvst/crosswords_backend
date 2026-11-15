@@ -50,7 +50,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Everything else needs login. Above all the Claude endpoint, because each call costs money.
                         .anyRequest().authenticated())
-                // Basic: username and password. The frontend only uses it once, on POST /api/auth/login,
+                // Basic: email and password. The frontend only uses it once, on POST /api/auth/login,
                 // which answers with a JWT. Postman and requests.http may still use Basic everywhere.
                 .httpBasic(basic -> basic.authenticationEntryPoint(entryPoint))
                 // Bearer: the JWT from the login. Checked by JwtConfig's decoder on every request, without a database lookup.

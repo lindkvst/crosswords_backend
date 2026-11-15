@@ -80,7 +80,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
     void creatingACrosswordRecordsBothTexsCalls() throws Exception {
         int id = idOf(createCrossword(null));
 
-        mockMvc.perform(get("/api/crosswords/" + id + "/api-calls").with(httpBasic(PLAYER, PASSWORD)))
+        mockMvc.perform(get("/api/crosswords/" + id + "/api-calls").with(httpBasic(emailOf(PLAYER), PASSWORD)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].apiName").value("TEXS_FILL"))
@@ -90,7 +90,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
     @Test
     void unknownSizeGives404WithoutUsingTheQuota() throws Exception {
         mockMvc.perform(post("/api/crosswords")
-                        .with(httpBasic(PLAYER, PASSWORD))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"gridSize\": 6}"))
                 .andExpect(status().isNotFound());
@@ -99,7 +99,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
 
     @Test
     void sizesListsEachSizeOnceWithItsNumberOfLayouts() throws Exception {
-        mockMvc.perform(get("/api/grid-templates/sizes").with(httpBasic(PLAYER, PASSWORD)))
+        mockMvc.perform(get("/api/grid-templates/sizes").with(httpBasic(emailOf(PLAYER), PASSWORD)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(4))
                 .andExpect(jsonPath("$[0].size").value(5))
@@ -115,7 +115,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(post("/api/crosswords/" + id + "/submissions/claude")
                         .param("model", "CHEAP_AND_DUMB")
-                        .with(httpBasic(PLAYER, PASSWORD)))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.submission.percentCorrect").value(100))
                 .andExpect(jsonPath("$.submission.llmModel").value("CHEAP_AND_DUMB"))
@@ -125,7 +125,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
         verify(claudeApiClient).solveCrossword(sentToClaude.capture(), eq(ClaudeModel.CHEAP_AND_DUMB));
         sentToClaude.getValue().grid().forEach(row -> assertTrue(row.matches("[.#]+"), "Claude saw letters: " + row));
 
-        mockMvc.perform(get("/api/crosswords/" + id + "/api-calls").with(httpBasic(PLAYER, PASSWORD)))
+        mockMvc.perform(get("/api/crosswords/" + id + "/api-calls").with(httpBasic(emailOf(PLAYER), PASSWORD)))
                 .andExpect(jsonPath("$[2].apiName").value("CLAUDE_SOLVE"))
                 .andExpect(jsonPath("$[2].inputTokens").value(1000))
                 .andExpect(jsonPath("$[2].outputTokens").value(200));
@@ -139,7 +139,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(post("/api/crosswords/" + id + "/submissions/claude")
                         .param("model", "TOTAL_TOKEN_KILLER")
-                        .with(httpBasic(ADMIN, PASSWORD)))
+                        .with(httpBasic(emailOf(ADMIN), PASSWORD)))
                 .andExpect(status().isCreated());
     }
 
@@ -150,7 +150,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
 
         // Two wrong letters out of 23 letter cells: 21/23 = 91 %.
         mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
-                        .with(httpBasic(PLAYER, PASSWORD))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"grid": ["XX#CD", "EFGHI", "JKLMN", "OPQRS", "TU#VW"], "attemptId": %d}
@@ -166,7 +166,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
         int id = idOf(createCrossword(null));
 
         mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
-                        .with(httpBasic(PLAYER, PASSWORD))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"grid\": [\"AB#CD\"], \"attemptId\": " + startAttempt(id, PLAYER) + "}"))
                 .andExpect(status().isBadRequest());
@@ -180,7 +180,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
         Thread.sleep(50);
 
         mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
-                        .with(httpBasic(PLAYER, PASSWORD))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"grid\": " + objectMapper.writeValueAsString(ANSWER_KEY)
                                 + ", \"attemptId\": " + attemptId + ", \"timeToSolveMs\": 1}"))
@@ -197,7 +197,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
                 .thenReturn(new ClaudeSolution(ANSWER_KEY, 1000, 200));
         String claudeBody = mockMvc.perform(post("/api/crosswords/" + id + "/submissions/claude")
                         .param("model", "CHEAP_AND_DUMB")
-                        .with(httpBasic(PLAYER, PASSWORD)))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         int claudeSubmissionId = objectMapper.readTree(claudeBody).get("submission").get("id").asInt();
@@ -212,7 +212,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
         int adminsAttempt = startAttempt(id, ADMIN);
 
         mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
-                        .with(httpBasic(PLAYER, PASSWORD))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"grid\": " + objectMapper.writeValueAsString(ANSWER_KEY)
                                 + ", \"attemptId\": " + adminsAttempt + "}"))
@@ -227,12 +227,12 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
         String grid = objectMapper.writeValueAsString(ANSWER_KEY);
 
         mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
-                        .with(httpBasic(PLAYER, PASSWORD))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"grid\": " + grid + ", \"attemptId\": " + attemptForOther + "}"))
                 .andExpect(status().isNotFound());
         mockMvc.perform(post("/api/crosswords/" + id + "/submissions")
-                        .with(httpBasic(PLAYER, PASSWORD))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"grid\": " + grid + "}"))
                 .andExpect(status().isBadRequest());
@@ -244,7 +244,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
         int submissionId = submitAsPlayer(crosswordId);
 
         mockMvc.perform(get("/api/crosswords/" + crosswordId + "/submissions/" + submissionId)
-                        .with(httpBasic(PLAYER, PASSWORD)))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.submission.username").value(PLAYER))
                 .andExpect(jsonPath("$.submittedGrid[0]").value("AB#CX"))
@@ -257,7 +257,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
         int submissionId = submitAsPlayer(crosswordId);
 
         mockMvc.perform(get("/api/crosswords/" + crosswordId + "/submissions/" + submissionId)
-                        .with(httpBasic(ADMIN, PASSWORD)))
+                        .with(httpBasic(emailOf(ADMIN), PASSWORD)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("You can only see your own submissions"));
     }
@@ -269,7 +269,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
         int submissionId = submitAsPlayer(crosswordId);
 
         mockMvc.perform(get("/api/crosswords/" + otherCrosswordId + "/submissions/" + submissionId)
-                        .with(httpBasic(PLAYER, PASSWORD)))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD)))
                 .andExpect(status().isNotFound());
     }
 
@@ -277,7 +277,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
     private int submitAsPlayer(int crosswordId) throws Exception {
         String grid = objectMapper.writeValueAsString(List.of("AB#CX", "EFGHI", "JKLMN", "OPQRS", "TU#VW"));
         String body = mockMvc.perform(post("/api/crosswords/" + crosswordId + "/submissions")
-                        .with(httpBasic(PLAYER, PASSWORD))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"grid\": " + grid + ", \"attemptId\": " + startAttempt(crosswordId, PLAYER) + "}"))
                 .andExpect(status().isCreated())
@@ -287,7 +287,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
 
     private int submitWithAttempt(int crosswordId, int attemptId) throws Exception {
         String body = mockMvc.perform(post("/api/crosswords/" + crosswordId + "/submissions")
-                        .with(httpBasic(PLAYER, PASSWORD))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"grid\": " + objectMapper.writeValueAsString(ANSWER_KEY)
                                 + ", \"attemptId\": " + attemptId + "}"))
@@ -298,7 +298,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
 
     private int startAttempt(int crosswordId, String username) throws Exception {
         String body = mockMvc.perform(post("/api/crosswords/" + crosswordId + "/attempts")
-                        .with(httpBasic(username, PASSWORD)))
+                        .with(httpBasic(emailOf(username), PASSWORD)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(body).get("id").asInt();
@@ -307,7 +307,7 @@ class CrosswordFlowIntegrationTest extends IntegrationTestBase {
     private String createCrossword(String theme) throws Exception {
         String themeJson = theme == null ? "null" : "\"" + theme + "\"";
         return mockMvc.perform(post("/api/crosswords")
-                        .with(httpBasic(PLAYER, PASSWORD))
+                        .with(httpBasic(emailOf(PLAYER), PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"gridSize\": 5, \"playerPrompt\": " + themeJson + "}"))
                 .andExpect(status().isCreated())

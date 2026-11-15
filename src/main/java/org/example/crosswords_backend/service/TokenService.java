@@ -28,7 +28,7 @@ public class TokenService {
         this.lifetimeMinutes = lifetimeMinutes;
     }
 
-    // The token holds who the user is (sub) and the role, signed so the client cannot change them.
+    // The token holds who the user is (sub = the user's id, see AppUserDetailsService) and the role, signed so the client cannot change them.
     // It is not encrypted: anyone can read the claims, so nothing secret goes in here.
     public TokenDto createToken(Authentication authentication) {
         requirePasswordLogin(authentication);
@@ -46,10 +46,10 @@ public class TokenService {
         return new TokenDto(token, expiresAt);
     }
 
-    // A new token only for username and password. Otherwise a stolen token could be swapped for new ones forever.
+    // A new token only for email and password. Otherwise a stolen token could be swapped for new ones forever.
     private void requirePasswordLogin(Authentication authentication) {
         if (!(authentication instanceof UsernamePasswordAuthenticationToken)) {
-            throw new InvalidLoginException("Log in with username and password (HTTP Basic) to get a token");
+            throw new InvalidLoginException("Log in with email and password (HTTP Basic) to get a token");
         }
     }
 

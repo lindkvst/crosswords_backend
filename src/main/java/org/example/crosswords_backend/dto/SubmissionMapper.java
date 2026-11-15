@@ -45,6 +45,7 @@ public class SubmissionMapper {
                 submission.getId(),
                 submission.getCrossword().getId(),
                 // Submissions from before V2.0 have no user.
+                submission.getUser() == null ? null : submission.getUser().getId(),
                 submission.getUser() == null ? null : submission.getUser().getUsername(),
                 submission.getLlmModel(),
                 submission.getTimeToSolveMs(),

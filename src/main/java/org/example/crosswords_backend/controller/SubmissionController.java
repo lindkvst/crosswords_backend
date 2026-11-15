@@ -33,7 +33,7 @@ public class SubmissionController {
     public ResponseEntity<SubmissionResultDto> submit(@PathVariable int crosswordId,
                                                       @RequestBody SubmissionRequestDto request,
                                                       Principal principal) {
-        SubmissionResultDto result = submissionService.submitByPlayer(crosswordId, request, principal.getName());
+        SubmissionResultDto result = submissionService.submitByPlayer(crosswordId, request, CurrentUser.id(principal));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -43,7 +43,7 @@ public class SubmissionController {
     public ResponseEntity<SubmissionResultDto> submitByClaude(@PathVariable int crosswordId,
                                                               @RequestParam ClaudeModel model,
                                                               Principal principal) {
-        SubmissionResultDto result = submissionService.submitByClaude(crosswordId, model, principal.getName());
+        SubmissionResultDto result = submissionService.submitByClaude(crosswordId, model, CurrentUser.id(principal));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -51,7 +51,7 @@ public class SubmissionController {
     public SubmissionResultDto findOwnSubmission(@PathVariable int crosswordId,
                                                  @PathVariable int submissionId,
                                                  Principal principal) {
-        return submissionService.findOwnSubmission(crosswordId, submissionId, principal.getName());
+        return submissionService.findOwnSubmission(crosswordId, submissionId, CurrentUser.id(principal));
     }
 
     @GetMapping

@@ -4,6 +4,7 @@ import org.example.crosswords_backend.dto.UserDto;
 import org.example.crosswords_backend.dto.UserRegistrationDto;
 import org.example.crosswords_backend.exception.InvalidRegistrationException;
 import org.example.crosswords_backend.exception.ResourceNotFoundException;
+import org.example.crosswords_backend.exception.EmailTakenException;
 import org.example.crosswords_backend.exception.UsernameTakenException;
 import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Role;
@@ -32,34 +33,40 @@ public class UserService {
     public UserDto register(UserRegistrationDto request) {
         requireValid(request);
         String username = request.username().trim();
+        String email = normalizeEmail(request.email());
         requireUsernameFree(username);
-        return toDto(saveNewPlayer(username, request));
+        requireEmailFree(email);
+        return toDto(saveNewPlayer(username, email, request.password()));
+    }
+
+    // Used both when registering and when logging in, so the same email always finds the same user.
+    public static String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 
     public List<UserDto> findAll() {
         return appUserRepository.findAll().stream().map(this::toDto).toList();
     }
 
-    public UserDto findByUsername(String username) {
-        return toDto(findEntityByUsername(username));
+    public UserDto findById(int id) {
+        return toDto(findEntityById(id));
     }
 
     // For other services, which need the entity to set it as owner of a crossword or submission.
-    public AppUser findEntityByUsername(String username) {
-        return appUserRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("No user named " + username));
+    public AppUser findEntityById(int id) {
+        return appUserRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("No user with id " + id));
     }
 
     // Everyone who registers is a PLAYER. An ADMIN can only be made directly in the database.
-    // Two registrations with the same name at the same moment both pass requireUsernameFree,
-    // so the unique column stops the second one here.
-    private AppUser saveNewPlayer(String username, UserRegistrationDto request) {
-        AppUser user = new AppUser(username, request.email().trim(),
-                passwordEncoder.encode(request.password()), Role.PLAYER);
+    // Two registrations with the same email or username at the same moment both pass the checks,
+    // so the unique columns stop the second one here. We cannot tell which column it was, hence one message.
+    private AppUser saveNewPlayer(String username, String email, String password) {
+        AppUser user = new AppUser(username, email, passwordEncoder.encode(password), Role.PLAYER);
         try {
             return appUserRepository.save(user);
         } catch (DataIntegrityViolationException ex) {
-            throw new UsernameTakenException("The username is already taken");
+            throw new EmailTakenException("The email or username is already taken");
         }
     }
 
@@ -67,15 +74,24 @@ public class UserService {
         if (request == null || isBlank(request.username()) || isBlank(request.email()) || isBlank(request.password())) {
             throw new InvalidRegistrationException("Username, email and password are required");
         }
+        if (!request.email().contains("@")) {
+            throw new InvalidRegistrationException("The email is not valid");
+        }
         if (request.password().getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES) {
             throw new InvalidRegistrationException("The password is too long");
         }
     }
 
-    // A quick check with a clear message. The unique column in register() is the real guarantee.
+    // Quick checks with a clear message. The unique columns in saveNewPlayer() are the real guarantee.
     private void requireUsernameFree(String username) {
         if (appUserRepository.existsByUsername(username)) {
             throw new UsernameTakenException("The username is already taken");
+        }
+    }
+
+    private void requireEmailFree(String email) {
+        if (appUserRepository.existsByEmail(email)) {
+            throw new EmailTakenException("The email is already registered");
         }
     }
 

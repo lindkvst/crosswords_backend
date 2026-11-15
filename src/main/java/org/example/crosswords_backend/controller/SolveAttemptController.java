@@ -24,6 +24,6 @@ public class SolveAttemptController {
 
     @PostMapping
     public ResponseEntity<SolveAttemptDto> start(@PathVariable int crosswordId, Principal principal) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(solveAttemptService.start(crosswordId, principal.getName()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(solveAttemptService.start(crosswordId, CurrentUser.id(principal)));
     }
 }

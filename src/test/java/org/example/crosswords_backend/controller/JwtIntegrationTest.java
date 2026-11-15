@@ -52,15 +52,16 @@ class JwtIntegrationTest extends IntegrationTestBase {
 
     @Test
     void loginWithAWrongPasswordGives401() throws Exception {
-        mockMvc.perform(post("/api/auth/login").with(httpBasic(PLAYER, "wrong")))
+        mockMvc.perform(post("/api/auth/login").with(httpBasic(emailOf(PLAYER), "wrong")))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void aChangedTokenGives401AsJsonWithoutWwwAuthenticate() throws Exception {
         String token = login(PLAYER);
-        // Changing one character of the signature makes the token invalid.
-        String tampered = token.substring(0, token.length() - 2) + (token.endsWith("A") ? "B" : "A") + token.charAt(token.length() - 1);
+        // Changing one character in the middle of the signature (the part after the last dot) makes the token invalid.
+        int i = token.length() - 10;
+        String tampered = token.substring(0, i) + (token.charAt(i) == 'A' ? 'B' : 'A') + token.substring(i + 1);
 
         mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer " + tampered))
                 .andExpect(status().isUnauthorized())
@@ -100,7 +101,7 @@ class JwtIntegrationTest extends IntegrationTestBase {
     }
 
     private String login(String username) throws Exception {
-        String body = mockMvc.perform(post("/api/auth/login").with(httpBasic(username, PASSWORD)))
+        String body = mockMvc.perform(post("/api/auth/login").with(httpBasic(emailOf(username), PASSWORD)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.expiresAt").exists())
                 .andReturn().getResponse().getContentAsString();

@@ -29,7 +29,7 @@ public class JsonAuthenticationEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
-        // The same text for unknown user and wrong password, so nobody can probe which usernames exist.
+        // The same text for unknown user and wrong password, so nobody can probe which emails exist.
         ErrorMessage body = new ErrorMessage(HttpStatus.UNAUTHORIZED.value(), LocalDateTime.now(),
                 "Login required", "uri=" + request.getRequestURI());
         response.setStatus(HttpStatus.UNAUTHORIZED.value());

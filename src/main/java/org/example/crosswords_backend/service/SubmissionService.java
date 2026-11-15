@@ -55,19 +55,19 @@ public class SubmissionService {
         this.solveAttemptService = solveAttemptService;
     }
 
-    public SubmissionResultDto submitByPlayer(int crosswordId, SubmissionRequestDto request, String username) {
+    public SubmissionResultDto submitByPlayer(int crosswordId, SubmissionRequestDto request, int userId) {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
-        AppUser user = userService.findEntityByUsername(username);
+        AppUser user = userService.findEntityById(userId);
         // Measured in the backend from when the crossword was opened, like Claude's time.
-        SolveAttempt attempt = solveAttemptService.findOwnAttempt(request.attemptId(), crosswordId, username);
+        SolveAttempt attempt = solveAttemptService.findOwnAttempt(request.attemptId(), crosswordId, userId);
         List<String> cellMarks = markCells(crossword, request.grid());
         CrosswordSubmission saved = save(crossword, user, attempt, request.grid(), null, attempt.elapsedMs(), cellMarks);
         return toResult(saved, request.grid(), cellMarks);
     }
 
-    public SubmissionResultDto submitByClaude(int crosswordId, ClaudeModel model, String username) {
+    public SubmissionResultDto submitByClaude(int crosswordId, ClaudeModel model, int userId) {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
-        AppUser user = userService.findEntityByUsername(username);
+        AppUser user = userService.findEntityById(userId);
         // Checked before the call, because the call is what costs money.
         requireModelAllowed(model, user);
 
@@ -81,9 +81,9 @@ public class SubmissionService {
 
     // Shows a saved submission again, scored the same way as when it was made.
     // Only for its owner: Claude's 100 % submission is in practice the answer key.
-    public SubmissionResultDto findOwnSubmission(int crosswordId, int submissionId, String username) {
+    public SubmissionResultDto findOwnSubmission(int crosswordId, int submissionId, int userId) {
         CrosswordSubmission submission = findSubmission(crosswordId, submissionId);
-        requireOwner(submission, username);
+        requireOwner(submission, userId);
         List<String> submittedGrid = submissionMapper.toSubmittedGrid(submission);
         return toResult(submission, submittedGrid, markCells(submission.getCrossword(), submittedGrid));
     }
@@ -106,8 +106,8 @@ public class SubmissionService {
 
     // A submission from before V2.0 has no user, so nobody owns it.
     // A Claude submission belongs to the user who asked Claude, see decision 54.
-    private void requireOwner(CrosswordSubmission submission, String username) {
-        if (submission.getUser() == null || !submission.getUser().getUsername().equals(username)) {
+    private void requireOwner(CrosswordSubmission submission, int userId) {
+        if (submission.getUser() == null || submission.getUser().getId() != userId) {
             throw new NotOwnerException("You can only see your own submissions");
         }
     }

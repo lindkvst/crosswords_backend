@@ -5,10 +5,12 @@ import org.example.crosswords_backend.model.ClaudeModel;
 import java.time.LocalDateTime;
 
 // The result of one submission, as shown in the list of submissions. llmModel is null for a player.
-// username is who submitted, or who asked Claude. Only the name, never the user entity with its hash.
+// userId and username are who submitted, or who asked Claude. Only these two, never the user entity with its hash.
+// The frontend compares userId, because two players may have the same username.
 public record SubmissionDto(
         int id,
         int crosswordId,
+        Integer userId,
         String username,
         ClaudeModel llmModel,
         int timeToSolveMs,

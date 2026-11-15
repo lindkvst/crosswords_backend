@@ -51,8 +51,8 @@ public class CrosswordService {
         this.apiCallService = apiCallService;
     }
 
-    public CrosswordDto createCrossword(CreateCrosswordRequestDto request, String username) {
-        AppUser user = userService.findEntityByUsername(username);
+    public CrosswordDto createCrossword(CreateCrosswordRequestDto request, int userId) {
+        AppUser user = userService.findEntityById(userId);
         // Everything that can fail on our side is checked before the fill, which costs one of the monthly quota.
         GridTemplate template = gridTemplateService.findRandomBySize(request.gridSize());
         String playerPrompt = validatedPrompt(request.playerPrompt());
