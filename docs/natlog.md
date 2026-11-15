@@ -810,8 +810,16 @@ Ikke committet: CLAUDE.md (nyt afsnit "Notion"), NATBRIEF.md, night.env.
 - Alle punkter fra del 1 og 2 gælder stadig (admin via SQL, push og PR for CI, rigtige nøgler, x-api-key).
 
 ### Procesdata (del 3)
-- Tid: cirka 05:00–05:40, inklusive spørgsmålene til Erik og Notion-reglen.
+- Tid: cirka 05:00–05:25, inklusive spørgsmålene til Erik og Notion-reglen.
 - Fejl undervejs: mit håndlavede 7×7-layout havde et løb på 2 (fanget af scriptet, og bagefter brugt som mutationstest af
   den nye test). Min første ejer-test forventede det forkerte bogstav. Min første app-start fejlede, fordi din app
   allerede kørte på 8080. Jeg brugte 8081 i stedet og rørte ikke din proces.
 - Ingen kald til texs eller Anthropic. Intet pushet.
+
+### Åbent spørgsmål fra Erik: session token?
+Vi har ingen token og ingen session. Det er HTTP Basic og stateless (beslutning 55): brugernavn og adgangskode ligger i en
+variabel i browseren og sendes med hvert kald. Serveren tjekker koden med BCrypt hver gang. Derfor er man logget ud ved
+genindlæsning, og CSRF er ikke en risiko, fordi der ingen cookie er.
+Mulig næste version: JWT som i P23–P24 (`POST /api/auth/login` giver et signeret token, frontenden sender `Bearer`).
+Det kræver nok en ny afhængighed (fx `spring-boot-starter-oauth2-resource-server`), og ifølge CLAUDE.md skal Erik godkende det
+først. Alternativ: server-session med JSESSIONID-cookie, men så skal CSRF slås til igen. Ikke bygget. Afventer Erik.
