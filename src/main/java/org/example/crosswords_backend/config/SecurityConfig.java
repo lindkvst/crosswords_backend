@@ -1,5 +1,6 @@
 package org.example.crosswords_backend.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -17,9 +18,6 @@ import java.util.List;
 
 @Configuration
 public class SecurityConfig {
-
-    // The only origin allowed to call the API from a browser: IntelliJ's built-in server for the frontend.
-    private static final String FRONTEND_ORIGIN = "http://localhost:63342";
 
     // BCrypt is slow on purpose and salts every hash, so a leaked table cannot be cracked with lookup tables.
     @Bean
@@ -57,10 +55,11 @@ public class SecurityConfig {
     }
 
     // CORS lives here instead of @CrossOrigin on each controller, so one place decides which origin may call us.
+    // The origin comes from the active profile: localhost:63342 in dev, FRONTEND_ORIGIN in prod.
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origin}") String allowedOrigin) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(FRONTEND_ORIGIN));
+        config.setAllowedOrigins(List.of(allowedOrigin));
         config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
 

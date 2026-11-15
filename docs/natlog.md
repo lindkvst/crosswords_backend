@@ -446,4 +446,22 @@ erDiagram
 - **Mutationstest:** `blankOut` midlertidigt ændret til at returnere gitteret uændret → 2 tests fejlede
   ("answer row leaked", "Claude saw letters"). Ændringen er fjernet igen med `git checkout -- CrosswordService.java`
   (filen var uændret i forvejen). Testene vogter altså reelt facit-reglen.
-- Slut 01:58.
+- Slut 01:48.
+
+### Slice 13 – Spring profiles dev og prod (V6.0)
+- Start 01:49.
+- `application.properties`: fælles ting (API-URL'er, nøgle-referencer, sprog, standard-CORS) og
+  `spring.profiles.active=dev`, ligesom i kino. På en server sætter `SPRING_PROFILES_ACTIVE=prod` (miljøvariabel) profilen,
+  fordi miljøvariabler vinder over application.properties.
+- `application-dev.properties`: MySQL fra de samme `DATABASE_*`-variabler som før, `ddl-auto=update`, `show-sql=true`.
+  Eriks opsætning i IntelliJ virker uændret.
+- `application-prod.properties`: `ddl-auto=validate` (ændrer aldrig databasen, nægter at starte ved uoverensstemmelse),
+  `show-sql=false`, `app.cors.allowed-origin=${FRONTEND_ORIGIN}`.
+- `SecurityConfig` læser CORS-origin fra `app.cors.allowed-origin` i stedet for en konstant (beslutning 68).
+- Tests bruger stadig `@ActiveProfiles("test")` med H2, så dev/prod påvirker dem ikke.
+- Kørt: 47 tests grønne. App i dev: `profile is active: "dev"`, `/me` 200, CORS for 63342.
+  App i prod (`SPRING_PROFILES_ACTIVE=prod FRONTEND_ORIGIN=https://crosswords.example.org`) mod den eksisterende MySQL:
+  skema-validering bestået, ingen SQL i loggen, `/me` 200, preflight fra 63342 → 403, fra example.org → 200.
+  `validate` er kun læsning; intet i databasen er ændret.
+- Rettet i natloggen: slice 12 sluttede 01:48, ikke 01:58.
+- Slut 01:51.
