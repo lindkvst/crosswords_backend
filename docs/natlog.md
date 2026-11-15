@@ -980,3 +980,19 @@ diagrammerne (kontekstdiagram, DFD, STRIDE).
   en ledetråd har position og længde, et ord uden ledetråd får standardteksten. 155 tests grønne.
 - Mutationstest: `blankOut` midlertidigt ændret til at returnere gitteret uændret → 2 af de 4 nye tests fejlede
   ("answer word leaked"). Filen er sat tilbage. Facit-reglen testes nu både som unit test og i integrationstestene.
+
+### Slice 27 – lavere kobling i SubmissionService (S23, CBO)
+- `SubmissionService` havde 8 afhængigheder, de fleste i projektet. Delt efter ansvar:
+
+  | Klasse | Ansvar | Afhængigheder |
+  |---|---|---|
+  | `SubmissionRecorder` | Scorer mod facit, gemmer og bygger svaret. Fælles for spiller og Claude | 3 |
+  | `PlayerSubmissionService` | Spillerens aflevering (med forsøg) | 4 |
+  | `ClaudeSubmissionService` | Claudes løsning (rollekrav, kald, forbrug) | 5 |
+  | `SubmissionService` | Kun læsning: listen og "Vis svar" | 4 |
+
+- `CrosswordService` har fået `puzzleFor(crossword)` og `answerKeyFor(crossword)`, så de andre services ikke skal kende
+  `CrosswordMapper`. Facit hentes dermed kun ét sted.
+- `SubmissionController` bruger nu de tre services. Endpoints og opførsel er uændrede: 155 tests grønne.
+- Djævlens advokat: der er nu flere klasser at sætte sig ind i. Til gengæld har hver klasse ét formål og en kortere liste
+  af afhængigheder.

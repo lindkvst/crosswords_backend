@@ -4,6 +4,8 @@ import org.example.crosswords_backend.dto.SubmissionDto;
 import org.example.crosswords_backend.dto.SubmissionRequestDto;
 import org.example.crosswords_backend.dto.SubmissionResultDto;
 import org.example.crosswords_backend.model.ClaudeModel;
+import org.example.crosswords_backend.service.ClaudeSubmissionService;
+import org.example.crosswords_backend.service.PlayerSubmissionService;
 import org.example.crosswords_backend.service.SubmissionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,9 +25,15 @@ import java.util.List;
 @RequestMapping("/api/crosswords/{crosswordId}/submissions")
 public class SubmissionController {
 
+    private final PlayerSubmissionService playerSubmissionService;
+    private final ClaudeSubmissionService claudeSubmissionService;
     private final SubmissionService submissionService;
 
-    public SubmissionController(SubmissionService submissionService) {
+    public SubmissionController(PlayerSubmissionService playerSubmissionService,
+                                ClaudeSubmissionService claudeSubmissionService,
+                                SubmissionService submissionService) {
+        this.playerSubmissionService = playerSubmissionService;
+        this.claudeSubmissionService = claudeSubmissionService;
         this.submissionService = submissionService;
     }
 
@@ -33,7 +41,7 @@ public class SubmissionController {
     public ResponseEntity<SubmissionResultDto> submit(@PathVariable int crosswordId,
                                                       @RequestBody SubmissionRequestDto request,
                                                       Principal principal) {
-        SubmissionResultDto result = submissionService.submitByPlayer(crosswordId, request, CurrentUser.id(principal));
+        SubmissionResultDto result = playerSubmissionService.submit(crosswordId, request, CurrentUser.id(principal));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -43,7 +51,7 @@ public class SubmissionController {
     public ResponseEntity<SubmissionResultDto> submitByClaude(@PathVariable int crosswordId,
                                                               @RequestParam ClaudeModel model,
                                                               Principal principal) {
-        SubmissionResultDto result = submissionService.submitByClaude(crosswordId, model, CurrentUser.id(principal));
+        SubmissionResultDto result = claudeSubmissionService.solve(crosswordId, model, CurrentUser.id(principal));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 

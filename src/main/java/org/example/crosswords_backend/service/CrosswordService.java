@@ -76,6 +76,16 @@ public class CrosswordService {
         return mapper.toDto(findEntityById(id));
     }
 
+    // What a player or Claude may see of a crossword: built only from emptyPuzzleJson.
+    public PuzzleDto puzzleFor(Crossword crossword) {
+        return mapper.toDto(crossword).puzzle();
+    }
+
+    // Only for scoring inside the backend. Never put the result in a DTO.
+    public List<String> answerKeyFor(Crossword crossword) {
+        return mapper.toAnswerKeyGrid(crossword);
+    }
+
     // For other services only. It returns the entity, which holds the answer key,
     // so a controller must never return the result of this method.
     public Crossword findEntityById(int id) {
