@@ -922,3 +922,11 @@ aldrig i git eller Notion, og en anden værdi i prod. Den, der kender nøglen, k
 - Database: `docs/schema-mysql.sql` er genereret igen. Dev-profilen har tilføjet kolonnen og fremmednøglen i din MySQL
   (port 8081). Bagefter bestod prod-profilens `validate`.
 - Alternativet uden tabel (en signeret "startbillet" til klienten, som et lille JWT) er nævnt for Erik, men fravalgt.
+
+### Beslutning 94 – ny database i stedet for at droppe den gamle
+- Erik spurgte, om databasen skulle droppes og oprettes igen. Claude anbefalede en ny database (`crosswords_v6`) ved siden
+  af den gamle: det giver rene data, uden at de gamle krydsord går tabt (de har kostet udfyldninger hos texs), og den
+  gamle kan bruges som backup. Erik valgte det og laver den selv (`CREATE DATABASE crosswords_v6 CHARACTER SET utf8mb4;`
+  og ny `DATABASE_URL`). Claude sletter ikke i databasen (CLAUDE.md regel 6).
+- V1-backenden kan efter alt at dømme stadig bruge en database med det nye skema, fordi ændringerne kun tilføjer
+  (nye tabeller og kolonner, der kan være tomme). Ikke testet.
