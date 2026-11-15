@@ -11,8 +11,10 @@ import org.example.crosswords_backend.dto.SubmissionResultDto;
 import org.example.crosswords_backend.gridlogic.GridScorer;
 import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.ClaudeModel;
+import org.example.crosswords_backend.exception.ModelNotAllowedException;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.CrosswordSubmission;
+import org.example.crosswords_backend.model.Role;
 import org.example.crosswords_backend.repository.CrosswordSubmissionRepository;
 import org.springframework.stereotype.Service;
 
@@ -59,6 +61,11 @@ public class SubmissionService {
     public SubmissionResultDto submitByClaude(int crosswordId, ClaudeModel model, String username) {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
         AppUser user = userService.findEntityByUsername(username);
+        // Checked before the call, because the call is what costs money. The role comes from the database,
+        // not from the client.
+        if (model.isAdminOnly() && user.getRole() != Role.ADMIN) {
+            throw new ModelNotAllowedException("Only an admin may use " + model.name());
+        }
 
         // Built from emptyPuzzleJson by the same mapper as the frontend uses, so Claude gets exactly what a player sees.
         PuzzleDto puzzle = crosswordMapper.toDto(crossword).puzzle();

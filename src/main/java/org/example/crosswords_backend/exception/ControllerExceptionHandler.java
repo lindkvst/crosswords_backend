@@ -29,6 +29,11 @@ public class ControllerExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(ModelNotAllowedException.class)
+    public ResponseEntity<ErrorMessage> modelNotAllowed(ModelNotAllowedException ex, WebRequest request) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(InvalidCrosswordRequestException.class)
     public ResponseEntity<ErrorMessage> invalidCrosswordRequest(InvalidCrosswordRequestException ex, WebRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);

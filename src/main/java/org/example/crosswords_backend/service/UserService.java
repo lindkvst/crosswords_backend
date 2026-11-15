@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Service
 public class UserService {
@@ -49,6 +50,10 @@ public class UserService {
             // Two registrations with the same name at the same moment: the unique column stops the second one.
             throw new UsernameTakenException("The username is already taken");
         }
+    }
+
+    public List<UserDto> findAll() {
+        return appUserRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public UserDto findByUsername(String username) {

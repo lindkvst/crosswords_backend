@@ -2,6 +2,7 @@ package org.example.crosswords_backend.service;
 
 import org.example.crosswords_backend.client.ClaudeSolution;
 import org.example.crosswords_backend.dto.ApiCallDto;
+import org.example.crosswords_backend.dto.ApiUsageSummaryDto;
 import org.example.crosswords_backend.model.ApiCall;
 import org.example.crosswords_backend.model.ClaudeModel;
 import org.example.crosswords_backend.model.Crossword;
@@ -38,6 +39,10 @@ public class ApiCallService {
         return apiCallRepository.findByCrosswordIdOrderByCreatedOnAsc(crosswordId).stream()
                 .map(this::toDto)
                 .toList();
+    }
+
+    public List<ApiUsageSummaryDto> summarizeByApi() {
+        return apiCallRepository.summarizeByApi();
     }
 
     private ApiCallDto toDto(ApiCall call) {

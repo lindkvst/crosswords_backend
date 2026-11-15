@@ -400,3 +400,22 @@ erDiagram
         datetime created_on
     }
 ```
+
+### Slice 11 – roller: hvad kan en admin? (V4.0)
+- Start 01:41.
+- Svar på roadmap'ens spørgsmål (beslutning 66): en ADMIN kan
+  1. se alle brugere (`GET /api/admin/users`),
+  2. se den samlede regning pr. API: antal kald, tid, tokens og estimeret energi (`GET /api/admin/usage`,
+     JPQL med `select new ...ApiUsageSummaryDto(...) group by`),
+  3. som den eneste starte `TOTAL_TOKEN_KILLER` (`ClaudeModel.adminOnly`). En PLAYER får 403, før Claude kaldes.
+- `/api/admin/**` kræver `hasRole("ADMIN")` i `SecurityConfig`. Ny `JsonAccessDeniedHandler` svarer 403 som JSON.
+  Det admin-låste model-valg tjekkes i `SubmissionService` med rollen fra databasen → `ModelNotAllowedException` → 403.
+- Ingen måde at blive admin på via API'et. Det sker kun med SQL (beslutning 67), og ingen admin er seedet med password.
+- Frontend: admin-panel (samlet forbrug + brugere) vises kun for ADMIN. Fable-valget er slået fra for spillere.
+  Det er kun bekvemmelighed; backenden afviser alligevel. `API_NAMES` er flyttet til `models.js`, så den kun står ét sted.
+- Kørt: compile, app-start (Spring Data validerer JPQL-forespørgslen ved opstart → ok), curl: player på
+  `/api/admin/users` → 403 JSON, uden login → 401, Fable som player → 403 "Only an admin may use TOTAL_TOKEN_KILLER"
+  uden Claude-kald, Haiku på ukendt krydsord → 404. `node --check` og id-tjek ok.
+- IKKE kørt mod MySQL: en rigtig admin (kræver `UPDATE app_user SET role = 'ADMIN'`, og miljøvariablerne til databasen
+  må jeg ikke bruge). Admin-stien testes med MockMvc og H2 i V5.0.
+- Slut 01:45.

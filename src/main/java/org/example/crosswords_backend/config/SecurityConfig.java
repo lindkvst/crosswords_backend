@@ -29,7 +29,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   JsonAuthenticationEntryPoint entryPoint) throws Exception {
+                                                   JsonAuthenticationEntryPoint entryPoint,
+                                                   JsonAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
                 // CSRF attacks rely on the browser sending a cookie by itself. We use no cookies and no session:
                 // the frontend adds the Basic header explicitly to every call, which another site cannot do.
@@ -43,10 +44,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/users/register").permitAll()
                         // Spring forwards errors (e.g. 404) to /error. Without this the real error would become a 401.
                         .requestMatchers("/error").permitAll()
+                        // hasRole("ADMIN") checks the authority "ROLE_ADMIN" that AppUserDetailsService gives.
+                        // Rules are checked from the top, so this must come before anyRequest().
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Everything else needs login. Above all the Claude endpoint, because each call costs money.
                         .anyRequest().authenticated())
                 .httpBasic(basic -> basic.authenticationEntryPoint(entryPoint))
-                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint));
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler(accessDeniedHandler));
         return http.build();
     }
 
