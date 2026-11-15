@@ -57,25 +57,14 @@ public class CrosswordService {
         GridTemplate template = gridTemplateService.findRandomBySize(request.gridSize());
         String playerPrompt = validatedPrompt(request.playerPrompt());
 
-        // Her fyldes et tomt grid ud med ord
-        long fillStart = System.currentTimeMillis();
-        FillResponse fill = apiClient.fill(template.getRows());
-        int fillMs = (int) (System.currentTimeMillis() - fillStart);
-        requireFilled(fill);
+        Timed<List<String>> answerKeyGrid = fillGrid(template);
+        List<GridWord> gridWords = GridWordFinder.findGridWords(answerKeyGrid.result());
+        Timed<Map<String, List<ApiClue>>> cluesByWord = fetchClues(gridWords);
 
-        List<String> answerKeyGrid = fill.grid();
-        List<GridWord> gridWords = GridWordFinder.findGridWords(answerKeyGrid);
-        List<String> words = gridWords.stream().map(GridWord::word).toList();
-        long cluesStart = System.currentTimeMillis();
-        Map<String, List<ApiClue>> cluesByWord = apiClient.fetchClues(words);
-        int cluesMs = (int) (System.currentTimeMillis() - cluesStart);
-
-        PuzzleDto puzzle = new PuzzleDto(blankOut(answerKeyGrid), toClues(gridWords, cluesByWord));
-
-        Crossword saved = crosswordRepository.save(mapper.toEntity(template, user, playerPrompt, puzzle, answerKeyGrid));
-        // Recorded after the save, because a usage row must point to a crossword.
-        apiCallService.recordTexsCall(saved, ExternalApi.TEXS_FILL, fillMs);
-        apiCallService.recordTexsCall(saved, ExternalApi.TEXS_CLUES, cluesMs);
+        PuzzleDto puzzle = new PuzzleDto(blankOut(answerKeyGrid.result()), toClues(gridWords, cluesByWord.result()));
+        Crossword saved = crosswordRepository.save(
+                mapper.toEntity(template, user, playerPrompt, puzzle, answerKeyGrid.result()));
+        recordTexsCalls(saved, answerKeyGrid.ms(), cluesByWord.ms());
         return mapper.toDto(saved);
     }
 
@@ -104,6 +93,24 @@ public class CrosswordService {
             throw new InvalidCrosswordRequestException("The theme can be at most " + MAX_PROMPT_LENGTH + " characters");
         }
         return trimmed;
+    }
+
+    // Each fill costs one of the monthly quota. The filled grid is the answer key.
+    private Timed<List<String>> fillGrid(GridTemplate template) {
+        Timed<FillResponse> fill = Timed.measure(() -> apiClient.fill(template.getRows()));
+        requireFilled(fill.result());
+        return new Timed<>(fill.result().grid(), fill.ms());
+    }
+
+    private Timed<Map<String, List<ApiClue>>> fetchClues(List<GridWord> gridWords) {
+        List<String> words = gridWords.stream().map(GridWord::word).toList();
+        return Timed.measure(() -> apiClient.fetchClues(words));
+    }
+
+    // After the save, because a usage row must point to a crossword.
+    private void recordTexsCalls(Crossword saved, int fillMs, int cluesMs) {
+        apiCallService.recordTexsCall(saved, ExternalApi.TEXS_FILL, fillMs);
+        apiCallService.recordTexsCall(saved, ExternalApi.TEXS_CLUES, cluesMs);
     }
 
     private void requireFilled(FillResponse fill) {

@@ -53,24 +53,34 @@ public class ClaudeApiClient {
 
     // Takes a PuzzleDto, which has no answers. That type is the guarantee that Claude never sees the answer key.
     public ClaudeSolution solveCrossword(PuzzleDto puzzle, ClaudeModel model) {
-        ClaudeRequest request = new ClaudeRequest(
+        ClaudeResponse response = send(buildRequest(puzzle, model));
+        List<String> grid = parseGrid(answerText(response));
+        checkShape(grid, puzzle.grid());
+        return toSolution(grid, response.usage());
+    }
+
+    // The puzzle goes in as JSON text, and the JSON schema forces Claude to answer with { "grid": [...] }.
+    private ClaudeRequest buildRequest(PuzzleDto puzzle, ClaudeModel model) {
+        return new ClaudeRequest(
                 model.getModelId(),
                 MAX_TOKENS,
                 SYSTEM_PROMPT,
                 List.of(new ClaudeRequest.Message("user", objectMapper.writeValueAsString(puzzle))),
                 new ClaudeRequest.OutputConfig(new ClaudeRequest.Format("json_schema", GRID_SCHEMA)));
+    }
 
-        ClaudeResponse response = webClient.post()
+    private ClaudeResponse send(ClaudeRequest request) {
+        return webClient.post()
                 .uri("/messages")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(ClaudeResponse.class)
                 .block(TIMEOUT);
+    }
 
-        List<String> grid = parseGrid(answerText(response));
-        checkShape(grid, puzzle.grid());
-        ClaudeResponse.Usage usage = response.usage();
+    // The token counts are only used for the resource table, so a missing usage block is not an error.
+    private ClaudeSolution toSolution(List<String> grid, ClaudeResponse.Usage usage) {
         return usage == null
                 ? new ClaudeSolution(grid, null, null)
                 : new ClaudeSolution(grid, usage.inputTokens(), usage.outputTokens());

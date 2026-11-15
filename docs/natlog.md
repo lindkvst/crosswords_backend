@@ -875,3 +875,18 @@ aldrig i git eller Notion, og en anden værdi i prod. Den, der kender nøglen, k
 - Ikke i menuen, fordi den kun er relevant, før man er logget ind (beslutning 90).
 - Kørt: `node --check`, id-tjek og tjek af HTML-tags. IKKE testet i en browser.
 - Frontend-commit: `Slice 20 - opret bruger på sin egen side` (index.html, js/index.js).
+
+### Slice 21 – trin med navne i stedet for kommentarer
+- Eriks ønske: lange metoder skal deles i private metoder, hvis navne forklarer, hvad der sker (beslutning 91).
+  Tommelfingerregel: 4–6 linjer, der udgør ét trin, får en metode. Enkeltlinjer pakkes ikke ind. Kommentarer om *hvorfor*
+  bliver stående.
+- Ny `service/Timed` (record, package-private): `Timed.measure(() -> kald)` giver resultat og tid. Erstatter tre ens blokke
+  med `System.currentTimeMillis()` (fill, clues, Claude).
+- `CrosswordService.createCrossword`: 25 → 11 linjer med `fillGrid`, `fetchClues`, `recordTexsCalls`. Eriks danske kommentar
+  "Her fyldes et tomt grid ud med ord" er erstattet af metodenavnet `fillGrid`.
+- `SubmissionService.submitByClaude`: `solveWithClaude`. `UserService.register`: `saveNewPlayer` (try/catch for unikt navn).
+- `ClaudeApiClient.solveCrossword`: 21 → 5 linjer med `buildRequest`, `send`, `toSolution`.
+- `GridWordFinder.findGridWords`: `wordStartingAt(grid, row, col, rowStep, colStep)` svarer på "starter der et ord her?".
+- `GridScorer`: `requireSameRowCount`, `markRow`. `percentCorrect` tæller med `chars().filter(...)` i stedet for to løkker.
+- Ikke ændret: `InitData.templates()` (data) og `SecurityConfig` (DSL, læses som en liste af regler).
+- Ingen ændret opførsel: 145 tests grønne.

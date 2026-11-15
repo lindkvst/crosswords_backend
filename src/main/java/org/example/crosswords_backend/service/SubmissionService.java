@@ -66,18 +66,12 @@ public class SubmissionService {
         // Checked before the call, because the call is what costs money.
         requireModelAllowed(model, user);
 
-        // Built from emptyPuzzleJson by the same mapper as the frontend uses, so Claude gets exactly what a player sees.
-        PuzzleDto puzzle = crosswordMapper.toDto(crossword).puzzle();
-
-        // Here the backend measures the time itself, so it can be trusted (unlike the player's time).
-        long start = System.currentTimeMillis();
-        ClaudeSolution solution = claudeApiClient.solveCrossword(puzzle, model);
-        int timeToSolveMs = (int) (System.currentTimeMillis() - start);
-
-        List<String> cellMarks = markCells(crossword, solution.grid());
-        CrosswordSubmission saved = save(crossword, user, solution.grid(), model, timeToSolveMs, cellMarks);
-        apiCallService.recordClaudeCall(crossword, saved, model, timeToSolveMs, solution);
-        return toResult(saved, solution.grid(), cellMarks);
+        Timed<ClaudeSolution> solution = solveWithClaude(crossword, model);
+        List<String> grid = solution.result().grid();
+        List<String> cellMarks = markCells(crossword, grid);
+        CrosswordSubmission saved = save(crossword, user, grid, model, solution.ms(), cellMarks);
+        apiCallService.recordClaudeCall(crossword, saved, model, solution.ms(), solution.result());
+        return toResult(saved, grid, cellMarks);
     }
 
     // Shows a saved submission again, scored the same way as when it was made.
@@ -111,6 +105,12 @@ public class SubmissionService {
         if (submission.getUser() == null || !submission.getUser().getUsername().equals(username)) {
             throw new NotOwnerException("You can only see your own submissions");
         }
+    }
+
+    // Claude gets exactly what a player sees: the puzzle built from emptyPuzzleJson by the same mapper as the frontend.
+    private Timed<ClaudeSolution> solveWithClaude(Crossword crossword, ClaudeModel model) {
+        PuzzleDto puzzle = crosswordMapper.toDto(crossword).puzzle();
+        return Timed.measure(() -> claudeApiClient.solveCrossword(puzzle, model));
     }
 
     // The role comes from the database, not from the client.

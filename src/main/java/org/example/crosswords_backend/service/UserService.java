@@ -33,16 +33,7 @@ public class UserService {
         requireValid(request);
         String username = request.username().trim();
         requireUsernameFree(username);
-
-        // Everyone who registers is a PLAYER. An ADMIN can only be made directly in the database.
-        AppUser user = new AppUser(username, request.email().trim(),
-                passwordEncoder.encode(request.password()), Role.PLAYER);
-        try {
-            return toDto(appUserRepository.save(user));
-        } catch (DataIntegrityViolationException ex) {
-            // Two registrations with the same name at the same moment: the unique column stops the second one.
-            throw new UsernameTakenException("The username is already taken");
-        }
+        return toDto(saveNewPlayer(username, request));
     }
 
     public List<UserDto> findAll() {
@@ -57,6 +48,19 @@ public class UserService {
     public AppUser findEntityByUsername(String username) {
         return appUserRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("No user named " + username));
+    }
+
+    // Everyone who registers is a PLAYER. An ADMIN can only be made directly in the database.
+    // Two registrations with the same name at the same moment both pass requireUsernameFree,
+    // so the unique column stops the second one here.
+    private AppUser saveNewPlayer(String username, UserRegistrationDto request) {
+        AppUser user = new AppUser(username, request.email().trim(),
+                passwordEncoder.encode(request.password()), Role.PLAYER);
+        try {
+            return appUserRepository.save(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw new UsernameTakenException("The username is already taken");
+        }
     }
 
     private void requireValid(UserRegistrationDto request) {

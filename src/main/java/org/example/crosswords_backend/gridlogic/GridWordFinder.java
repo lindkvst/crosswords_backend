@@ -16,28 +16,32 @@ public class GridWordFinder {
 
         for (int row = 0; row < grid.size(); row++) {
             for (int col = 0; col < grid.get(row).length(); col++) {
-                if (isBlack(grid, row, col)) {
-                    continue;
-                }
-                // A word starts here if the cell before it (left or above) is black or outside the grid.
-                String across = isBlack(grid, row, col - 1) ? readWord(grid, row, col, 0, 1) : "";
-                String down = isBlack(grid, row - 1, col) ? readWord(grid, row, col, 1, 0) : "";
-                boolean startsAcross = across.length() >= MIN_LENGTH;
-                boolean startsDown = down.length() >= MIN_LENGTH;
+                String across = wordStartingAt(grid, row, col, 0, 1);
+                String down = wordStartingAt(grid, row, col, 1, 0);
 
                 // An across and a down word starting in the same cell share one number.
-                if (startsAcross || startsDown) {
+                if (across != null || down != null) {
                     number++;
                 }
-                if (startsAcross) {
+                if (across != null) {
                     gridWords.add(new GridWord(number, "across", row, col, across));
                 }
-                if (startsDown) {
+                if (down != null) {
                     gridWords.add(new GridWord(number, "down", row, col, down));
                 }
             }
         }
         return gridWords;
+    }
+
+    // The word that starts in this cell in the given direction (0,1 = across, 1,0 = down), or null if none does.
+    // A word starts where the cell before it (left or above) is black or outside the grid.
+    private static String wordStartingAt(List<String> grid, int row, int col, int rowStep, int colStep) {
+        if (isBlack(grid, row, col) || !isBlack(grid, row - rowStep, col - colStep)) {
+            return null;
+        }
+        String word = readWord(grid, row, col, rowStep, colStep);
+        return word.length() >= MIN_LENGTH ? word : null;
     }
 
     private static boolean isBlack(List<String> grid, int row, int col) {
