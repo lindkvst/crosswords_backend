@@ -37,6 +37,12 @@ public class ControllerExceptionHandler {
         return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
     }
 
+    // 429 Too Many Requests: the request is fine, but the user has used today's share.
+    @ExceptionHandler(DailyLimitException.class)
+    public ResponseEntity<ErrorMessage> dailyLimit(DailyLimitException ex, WebRequest request) {
+        return build(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(InvalidLoginException.class)
     public ResponseEntity<ErrorMessage> invalidLogin(InvalidLoginException ex, WebRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);

@@ -1025,3 +1025,17 @@ diagrammerne (kontekstdiagram, DFD, STRIDE).
   dermed løst.
 - Ny `ErrorHandlingIntegrationTest` (4): 404, 415, 405 og at en uventet fejl med "password_hash" i beskeden ikke viser
   teksten til klienten. 161 tests grønne.
+
+### Slice 30 – dagligt loft pr. bruger (S24 Risk, STRIDE "Denial of service")
+- Alle med en bruger kunne lave krydsord og kalde Claude uden grænse og dermed bruge texs' 30 udfyldninger og
+  Anthropic-kreditten. Nu: højst 5 nye krydsord og 20 Claude-løsninger pr. bruger pr. dag (`app.limits.*`). Admin har
+  ingen grænse. Over grænsen → 429 Too Many Requests (beslutning 97).
+- `DailyLimitService` tæller de gemte rækker siden midnat (`countByUserIdAndCreatedOnAfter`, Spring Data bygger
+  forespørgslen ud fra metodenavnet). Ingen nye tabeller.
+- Tjekket sker i en `DailyLimitInterceptor`, som `WebConfig` kun registrerer på `POST /api/crosswords` og
+  `POST /api/crosswords/*/submissions/claude`. Interceptoren står foran controlleren, ligesom Spring Security står foran
+  for at tjekke login. Derfor fik services ingen ny afhængighed, og koblingen fra slice 27 er bevaret.
+- Begrænsninger: en fejlet udfyldning hos texs gemmer intet krydsord og tælles ikke, selvom den måske har kostet en
+  udfyldning. texs-kvoten er fælles for alle, så 5 pr. bruger beskytter mod én bruger, ikke mod mange.
+- Ny `DailyLimitIntegrationTest` (3) med lave grænser og fakes: 429 efter 2 krydsord, 429 efter 1 Claude-løsning, admin
+  uden grænse. 164 tests grønne. Testprofilen har høje grænser, så de andre tests ikke stoppes.
