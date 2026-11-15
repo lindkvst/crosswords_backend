@@ -1016,3 +1016,12 @@ diagrammerne (kontekstdiagram, DFD, STRIDE).
 - **Brug:** sæt `APP_CROSSWORD_SOURCE=fake` og `APP_CROSSWORD_SOLVER=fake` i IntelliJ, når du afprøver frontenden. Så bruges
   ingen af de 30 udfyldninger og ingen Anthropic-kredit. Fjern dem igen før præsentationen.
 - Begrænsning: i fake-mode optages kaldene stadig i `api_call` som TEXS_FILL, TEXS_CLUES og CLAUDE_SOLVE.
+
+### Slice 29 – fejlbeskeder lækker ikke, og klientfejl får den rigtige status
+- `everythingElse` sendte `ex.getMessage()` til klienten, så en databasefejl kunne vise tabel- og kolonnenavne. Nu logges
+  beskeden med stack trace, og klienten får kun "Internal server error" (500).
+- Nye handlers: ukendt sti → 404 "No such endpoint" (`NoResourceFoundException`), forkert Content-Type → 415
+  (`HttpMediaTypeNotSupportedException`), forkert HTTP-metode → 405. Før blev alle tre til 500. Beslutning 64 er
+  dermed løst.
+- Ny `ErrorHandlingIntegrationTest` (4): 404, 415, 405 og at en uventet fejl med "password_hash" i beskeden ikke viser
+  teksten til klienten. 161 tests grønne.

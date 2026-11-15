@@ -5,12 +5,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 
@@ -101,9 +104,29 @@ public class ControllerExceptionHandler {
         return build(HttpStatus.BAD_GATEWAY, "External API answered with status " + ex.getStatusCode().value(), request);
     }
 
+    // An unknown URL. Without this, Spring's NoResourceFoundException ended in everythingElse as a 500.
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorMessage> noSuchPath(NoResourceFoundException ex, WebRequest request) {
+        return build(HttpStatus.NOT_FOUND, "No such endpoint", request);
+    }
+
+    // E.g. a POST with Content-Type text/plain where JSON is expected. Was a 500 before.
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorMessage> unsupportedMediaType(HttpMediaTypeNotSupportedException ex, WebRequest request) {
+        return build(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Send the body as application/json", request);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorMessage> methodNotAllowed(HttpRequestMethodNotSupportedException ex, WebRequest request) {
+        return build(HttpStatus.METHOD_NOT_ALLOWED, "Method " + ex.getMethod() + " is not allowed here", request);
+    }
+
+    // Everything we did not foresee. The real message can contain table names, SQL or other internals,
+    // so it goes to our log (with the stack trace) and the client only gets a neutral text.
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorMessage> everythingElse(Exception ex, WebRequest request) {
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), request);
+        log.error("Unexpected error on {}", request.getDescription(false), ex);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error", request);
     }
 
     private ResponseEntity<ErrorMessage> build(HttpStatus status, String message, WebRequest request) {
