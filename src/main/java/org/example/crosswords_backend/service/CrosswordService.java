@@ -9,6 +9,7 @@ import org.example.crosswords_backend.dto.CrosswordDto;
 import org.example.crosswords_backend.dto.CrosswordMapper;
 import org.example.crosswords_backend.dto.PuzzleDto;
 import org.example.crosswords_backend.exception.CrosswordApiException;
+import org.example.crosswords_backend.exception.InvalidCrosswordRequestException;
 import org.example.crosswords_backend.exception.ResourceNotFoundException;
 import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Crossword;
@@ -25,6 +26,8 @@ import java.util.Map;
 public class CrosswordService {
 
     private static final String NO_CLUE = "Ingen ledetråd - brug de krydsende bogstaver";
+    // The playerPrompt column is a VARCHAR(255). A longer text would fail in the database after the fill was paid for.
+    private static final int MAX_PROMPT_LENGTH = 255;
 
     private final CrosswordApiClient apiClient;
     private final CrosswordRepository crosswordRepository;
@@ -50,6 +53,9 @@ public class CrosswordService {
         GridTemplate template = gridTemplateService.findEntityById(request.gridTemplateId());
         String playerPrompt = request.playerPrompt() == null || request.playerPrompt().isBlank()
                 ? null : request.playerPrompt().trim();
+        if (playerPrompt != null && playerPrompt.length() > MAX_PROMPT_LENGTH) {
+            throw new InvalidCrosswordRequestException("The theme can be at most " + MAX_PROMPT_LENGTH + " characters");
+        }
 
         // Each call costs one fill of the monthly quota.
         // Her fyldes et tomt grid ud med ord

@@ -37,6 +37,6 @@ public class CrosswordMapper {
     // Built only from emptyPuzzleJson, so the answer key cannot end up in a response by accident.
     public CrosswordDto toDto(Crossword crossword) {
         PuzzleDto puzzle = objectMapper.readValue(crossword.getEmptyPuzzleJson(), PuzzleDto.class);
-        return new CrosswordDto(crossword.getId(), crossword.getCreatedOn(), puzzle);
+        return new CrosswordDto(crossword.getId(), crossword.getCreatedOn(), crossword.getPlayerPrompt(), puzzle);
     }
 }

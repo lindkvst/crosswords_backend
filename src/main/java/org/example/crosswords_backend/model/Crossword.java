@@ -26,7 +26,7 @@ public class Crossword {
     @JoinColumn(name = "user_id")
     private AppUser user;
 
-    // TODO Empty until V3.0, where the player describes a theme.
+    // The theme the player typed. Empty when none was given, and for crosswords from before V3.0.
     private String playerPrompt;
 
     // The puzzle without answers, stored exactly as it is sent out.

@@ -29,6 +29,11 @@ public class ControllerExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(InvalidCrosswordRequestException.class)
+    public ResponseEntity<ErrorMessage> invalidCrosswordRequest(InvalidCrosswordRequestException ex, WebRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(InvalidRegistrationException.class)
     public ResponseEntity<ErrorMessage> invalidRegistration(InvalidRegistrationException ex, WebRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
