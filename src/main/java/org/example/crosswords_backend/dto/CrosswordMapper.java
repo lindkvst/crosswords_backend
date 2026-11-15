@@ -19,11 +19,12 @@ public class CrosswordMapper {
         this.objectMapper = objectMapper;
     }
 
-    public Crossword toEntity(GridTemplate template, AppUser user, PuzzleDto puzzle, List<String> answerKeyGrid) {
+    public Crossword toEntity(GridTemplate template, AppUser user, String playerPrompt,
+                              PuzzleDto puzzle, List<String> answerKeyGrid) {
         return new Crossword(
                 template,
                 user,
-                null,
+                playerPrompt,
                 objectMapper.writeValueAsString(puzzle),
                 objectMapper.writeValueAsString(answerKeyGrid));
     }

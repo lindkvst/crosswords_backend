@@ -4,6 +4,7 @@ import org.example.crosswords_backend.client.ApiClue;
 import org.example.crosswords_backend.client.CrosswordApiClient;
 import org.example.crosswords_backend.client.FillResponse;
 import org.example.crosswords_backend.dto.ClueDto;
+import org.example.crosswords_backend.dto.CreateCrosswordRequestDto;
 import org.example.crosswords_backend.dto.CrosswordDto;
 import org.example.crosswords_backend.dto.CrosswordMapper;
 import org.example.crosswords_backend.dto.PuzzleDto;
@@ -13,7 +14,6 @@ import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.GridTemplate;
 import org.example.crosswords_backend.repository.CrosswordRepository;
-import org.example.crosswords_backend.repository.GridTemplateRepository;
 import org.example.crosswords_backend.gridlogic.GridWord;
 import org.example.crosswords_backend.gridlogic.GridWordFinder;
 import org.springframework.stereotype.Service;
@@ -28,26 +28,28 @@ public class CrosswordService {
 
     private final CrosswordApiClient apiClient;
     private final CrosswordRepository crosswordRepository;
-    private final GridTemplateRepository gridTemplateRepository;
+    private final GridTemplateService gridTemplateService;
     private final CrosswordMapper mapper;
     private final UserService userService;
 
     public CrosswordService(CrosswordApiClient apiClient,
                             CrosswordRepository crosswordRepository,
-                            GridTemplateRepository gridTemplateRepository,
+                            GridTemplateService gridTemplateService,
                             CrosswordMapper mapper,
                             UserService userService) {
         this.apiClient = apiClient;
         this.crosswordRepository = crosswordRepository;
-        this.gridTemplateRepository = gridTemplateRepository;
+        this.gridTemplateService = gridTemplateService;
         this.mapper = mapper;
         this.userService = userService;
     }
 
-    public CrosswordDto createCrossword(String username) {
+    public CrosswordDto createCrossword(CreateCrosswordRequestDto request, String username) {
         AppUser user = userService.findEntityByUsername(username);
-        GridTemplate template = gridTemplateRepository.findFirstByOrderByIdAsc()
-                .orElseThrow(() -> new ResourceNotFoundException("No grid template in the database"));
+        // Looked up before the fill, so an unknown id gives 404 without using any of the quota.
+        GridTemplate template = gridTemplateService.findEntityById(request.gridTemplateId());
+        String playerPrompt = request.playerPrompt() == null || request.playerPrompt().isBlank()
+                ? null : request.playerPrompt().trim();
 
         // Each call costs one fill of the monthly quota.
         // Her fyldes et tomt grid ud med ord
@@ -69,7 +71,7 @@ public class CrosswordService {
                 .toList();
         PuzzleDto puzzle = new PuzzleDto(blankOut(answerKeyGrid), clues);
 
-        Crossword saved = crosswordRepository.save(mapper.toEntity(template, user, puzzle, answerKeyGrid));
+        Crossword saved = crosswordRepository.save(mapper.toEntity(template, user, playerPrompt, puzzle, answerKeyGrid));
         return mapper.toDto(saved);
     }
 
