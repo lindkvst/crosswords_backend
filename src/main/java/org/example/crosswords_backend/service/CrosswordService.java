@@ -1,7 +1,7 @@
 package org.example.crosswords_backend.service;
 
 import org.example.crosswords_backend.client.ApiClue;
-import org.example.crosswords_backend.client.CrosswordApiClient;
+import org.example.crosswords_backend.client.CrosswordSource;
 import org.example.crosswords_backend.client.FillResponse;
 import org.example.crosswords_backend.dto.CreateCrosswordRequestDto;
 import org.example.crosswords_backend.dto.CrosswordDto;
@@ -30,20 +30,20 @@ public class CrosswordService {
     // The playerPrompt column is a VARCHAR(255). A longer text would fail in the database after the fill was paid for.
     private static final int MAX_PROMPT_LENGTH = 255;
 
-    private final CrosswordApiClient apiClient;
+    private final CrosswordSource crosswordSource;
     private final CrosswordRepository crosswordRepository;
     private final GridTemplateService gridTemplateService;
     private final CrosswordMapper mapper;
     private final UserService userService;
     private final ApiCallService apiCallService;
 
-    public CrosswordService(CrosswordApiClient apiClient,
+    public CrosswordService(CrosswordSource crosswordSource,
                             CrosswordRepository crosswordRepository,
                             GridTemplateService gridTemplateService,
                             CrosswordMapper mapper,
                             UserService userService,
                             ApiCallService apiCallService) {
-        this.apiClient = apiClient;
+        this.crosswordSource = crosswordSource;
         this.crosswordRepository = crosswordRepository;
         this.gridTemplateService = gridTemplateService;
         this.mapper = mapper;
@@ -107,14 +107,14 @@ public class CrosswordService {
 
     // Each fill costs one of the monthly quota. The filled grid is the answer key.
     private Timed<List<String>> fillGrid(GridTemplate template) {
-        Timed<FillResponse> fill = Timed.measure(() -> apiClient.fill(template.getRows()));
+        Timed<FillResponse> fill = Timed.measure(() -> crosswordSource.fill(template.getRows()));
         requireFilled(fill.result());
         return new Timed<>(fill.result().grid(), fill.ms());
     }
 
     private Timed<Map<String, List<ApiClue>>> fetchClues(List<GridWord> gridWords) {
         List<String> words = gridWords.stream().map(GridWord::word).toList();
-        return Timed.measure(() -> apiClient.fetchClues(words));
+        return Timed.measure(() -> crosswordSource.fetchClues(words));
     }
 
     // After the save, because a usage row must point to a crossword.

@@ -1,6 +1,6 @@
 package org.example.crosswords_backend.service;
 
-import org.example.crosswords_backend.client.ClaudeApiClient;
+import org.example.crosswords_backend.client.CrosswordSolver;
 import org.example.crosswords_backend.client.ClaudeSolution;
 import org.example.crosswords_backend.dto.PuzzleDto;
 import org.example.crosswords_backend.dto.SubmissionResultDto;
@@ -16,18 +16,18 @@ public class ClaudeSubmissionService {
 
     private final CrosswordService crosswordService;
     private final UserService userService;
-    private final ClaudeApiClient claudeApiClient;
+    private final CrosswordSolver crosswordSolver;
     private final ApiCallService apiCallService;
     private final SubmissionRecorder submissionRecorder;
 
     public ClaudeSubmissionService(CrosswordService crosswordService,
                                    UserService userService,
-                                   ClaudeApiClient claudeApiClient,
+                                   CrosswordSolver crosswordSolver,
                                    ApiCallService apiCallService,
                                    SubmissionRecorder submissionRecorder) {
         this.crosswordService = crosswordService;
         this.userService = userService;
-        this.claudeApiClient = claudeApiClient;
+        this.crosswordSolver = crosswordSolver;
         this.apiCallService = apiCallService;
         this.submissionRecorder = submissionRecorder;
     }
@@ -48,7 +48,7 @@ public class ClaudeSubmissionService {
     // Claude gets exactly what a player sees: the puzzle built from emptyPuzzleJson, never the answer key.
     private Timed<ClaudeSolution> solveWithClaude(Crossword crossword, ClaudeModel model) {
         PuzzleDto puzzle = crosswordService.puzzleFor(crossword);
-        return Timed.measure(() -> claudeApiClient.solveCrossword(puzzle, model));
+        return Timed.measure(() -> crosswordSolver.solveCrossword(puzzle, model));
     }
 
     // The role comes from the database, not from the client.

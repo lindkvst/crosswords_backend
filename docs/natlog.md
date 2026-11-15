@@ -996,3 +996,23 @@ diagrammerne (kontekstdiagram, DFD, STRIDE).
 - `SubmissionController` bruger nu de tre services. Endpoints og opførsel er uændrede: 155 tests grønne.
 - Djævlens advokat: der er nu flere klasser at sætte sig ind i. Til gengæld har hver klasse ét formål og en kortere liste
   af afhængigheder.
+
+### Slice 28 – afhæng af interfaces, ikke af texs og Claude (SOLID, DIP)
+- Nye interfaces i `client`: `CrosswordSource` (`fill`, `fetchClues`) og `CrosswordSolver` (`solveCrossword(PuzzleDto, model)`).
+  `CrosswordService` og `ClaudeSubmissionService` kender nu kun interfaces, ligesom "DataConsumer → IConnection" på slidet.
+- Implementeringer, valgt med properties (beslutning 96):
+
+  | Property | Værdi | Klasse |
+  |---|---|---|
+  | `app.crossword-source` | `texs` (standard) | `CrosswordApiClient` |
+  | | `fake` | `FakeCrosswordSource`: fylder skabelonen lokalt med A–Z og laver testledetråde |
+  | `app.crossword-solver` | `claude` (standard) | `ClaudeApiClient` |
+  | | `fake` | `FakeCrosswordSolver`: får kun det tomme puslespil og skriver A i alle hvide felter |
+
+- `WebClientConfig` laver kun de WebClients, der bruges, så fake-mode kræver ingen API-nøgler.
+- Testene mocker nu interfaces i stedet for klasser. Ny `FakeModeIntegrationTest` (2): properties vælger fakes, og et
+  krydsord kan laves og "løses" helt uden eksterne kald og uden mocks. 157 tests grønne.
+- Kørt mod MySQL på port 8081 i fake-mode med de to API-nøgler fjernet fra processen: appen startede.
+- **Brug:** sæt `APP_CROSSWORD_SOURCE=fake` og `APP_CROSSWORD_SOLVER=fake` i IntelliJ, når du afprøver frontenden. Så bruges
+  ingen af de 30 udfyldninger og ingen Anthropic-kredit. Fjern dem igen før præsentationen.
+- Begrænsning: i fake-mode optages kaldene stadig i `api_call` som TEXS_FILL, TEXS_CLUES og CLAUDE_SOLVE.

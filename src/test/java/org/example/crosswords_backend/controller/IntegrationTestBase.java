@@ -1,7 +1,7 @@
 package org.example.crosswords_backend.controller;
 
-import org.example.crosswords_backend.client.ClaudeApiClient;
-import org.example.crosswords_backend.client.CrosswordApiClient;
+import org.example.crosswords_backend.client.CrosswordSolver;
+import org.example.crosswords_backend.client.CrosswordSource;
 import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Role;
 import org.example.crosswords_backend.repository.AppUserRepository;
@@ -33,10 +33,10 @@ abstract class IntegrationTestBase {
     PasswordEncoder passwordEncoder;
 
     @MockitoBean
-    CrosswordApiClient crosswordApiClient;
+    CrosswordSource crosswordApiClient;
 
     @MockitoBean
-    ClaudeApiClient claudeApiClient;
+    CrosswordSolver claudeApiClient;
 
     // Users log in with their email. In the tests it is made from the username.
     static String emailOf(String username) {

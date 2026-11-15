@@ -3,6 +3,7 @@ package org.example.crosswords_backend.client;
 import org.example.crosswords_backend.exception.CrosswordApiException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -12,8 +13,10 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
+// The real crossword source (texs). Used unless app.crossword-source is set to something else, e.g. "fake".
 @Component
-public class CrosswordApiClient {
+@ConditionalOnProperty(name = "app.crossword-source", havingValue = "texs", matchIfMissing = true)
+public class CrosswordApiClient implements CrosswordSource {
 
     // Words scoring lower are left out. Assumption: a higher score means a more ordinary word.
     private static final int MIN_SCORE = 50;
@@ -32,6 +35,7 @@ public class CrosswordApiClient {
         this.language = language;
     }
 
+    @Override
     public FillResponse fill(List<String> template) {
         FillRequest request = new FillRequest(template, language, MIN_SCORE, MAX_SECONDS);
 
@@ -48,6 +52,7 @@ public class CrosswordApiClient {
                 .block();
     }
 
+    @Override
     public Map<String, List<ApiClue>> fetchClues(List<String> words) {
         CluesResponse response = webClient.post()
                 .uri("/clues/bulk")

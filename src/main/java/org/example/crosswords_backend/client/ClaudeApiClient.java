@@ -4,6 +4,7 @@ import org.example.crosswords_backend.dto.PuzzleDto;
 import org.example.crosswords_backend.exception.ClaudeAnswerException;
 import org.example.crosswords_backend.model.ClaudeModel;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -15,8 +16,10 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
+// The real solver (Claude). Used unless app.crossword-solver is set to something else, e.g. "fake".
 @Component
-public class ClaudeApiClient {
+@ConditionalOnProperty(name = "app.crossword-solver", havingValue = "claude", matchIfMissing = true)
+public class ClaudeApiClient implements CrosswordSolver {
 
     // Room for Claude's thinking as well as the short answer. Thinking counts towards this limit,
     // and the expensive models think the longest.
@@ -53,6 +56,7 @@ public class ClaudeApiClient {
     }
 
     // Takes a PuzzleDto, which has no answers. That type is the guarantee that Claude never sees the answer key.
+    @Override
     public ClaudeSolution solveCrossword(PuzzleDto puzzle, ClaudeModel model) {
         ClaudeResponse response = send(buildRequest(puzzle, model));
         List<String> grid = parseGrid(answerText(response));
