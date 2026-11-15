@@ -867,3 +867,11 @@ ikke læst ud).
 
 **Hvad står der i JWT_SECRET?** En tilfældig tekst, som Erik selv laver, fx med `openssl rand -base64 48`. Mindst 32 tegn,
 aldrig i git eller Notion, og en anden værdi i prod. Den, der kender nøglen, kan lave gyldige tokens, også med rollen ADMIN.
+
+### Slice 20 – opret bruger på sin egen side (kun frontend)
+- Erik ønskede "Opret bruger" på en separat side. Ny side `#opret` (`<div data-page="opret">`) med registreringsformularen og
+  sin egen statuslinje. Home har login og linket "Ny her? Opret en bruger". Opret-siden har linket "Log ind" tilbage.
+- `canShow`: Opret vises kun for brugere, der ikke er logget ind. Efter registrering logges man ind og sendes til Spil som før.
+- Ikke i menuen, fordi den kun er relevant, før man er logget ind (beslutning 90).
+- Kørt: `node --check`, id-tjek og tjek af HTML-tags. IKKE testet i en browser.
+- Frontend-commit: `Slice 20 - opret bruger på sin egen side` (index.html, js/index.js).
