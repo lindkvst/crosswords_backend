@@ -676,3 +676,25 @@ Frontend:
 - "Vejledning: API-nøgler" har fået et afsnit om alle miljøvariabler efter V6.0.
 - Linjen "Ikke nu: ..." i CLAUDE.md er rettet. CLAUDE.md er stadig ikke committet.
 - "Kodegennemgang V1" er ikke ændret, fordi den beskriver V1.0.
+
+---
+
+# Del 3 – Eriks ønsker fra morgenen 15. nov.
+
+Erik bad om: (1) Notion skal holdes opdateret løbende, også fra Claude Code, (2) flere 5×5-layouts, så de sorte felter
+ikke altid er ens, (3) navigation i frontend (Home, Kontakt osv.) med en Stats-side til admin, (4) en knap pr. aflevering,
+der viser afleveringens svar i gitteret, og (5) kortere service-metoder med private valideringsmetoder, der kaster exceptions.
+Svar fra Erik på mine spørgsmål: én side med #-links, kontaktside med projekt og GitHub-links, flere layouts + Erik sletter
+krydsord 2, 3, 4 og 6 selv, kun egne afleveringer kan vises.
+
+### Notion-reglen
+- Nyt afsnit "Notion" i CLAUDE.md med links og id'er og en liste over, hvad der opdateres efter hvert slice. Claude Code læser
+  CLAUDE.md ved hver session, så reglen gælder også fremover. Det er en instruktion, ikke en teknisk garanti (beslutning 77).
+- CLAUDE.md er stadig ikke committet.
+
+### Slice 15 – kortere services med private valideringsmetoder
+- `CrosswordService.createCrossword`: `validatedPrompt`, `requireFilled` og `toClues` er trukket ud. Metoden viser nu kun
+  flowet: bruger → template → tema → fill → ord → ledetråde → gem → optag forbrug.
+- `SubmissionService.submitByClaude`: `requireModelAllowed(model, user)`.
+- `UserService.register`: `requireValid(request)` og `requireUsernameFree(username)`.
+- Ingen ændret opførsel. Kørt: compile og alle 47 tests grønne.

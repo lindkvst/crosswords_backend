@@ -61,11 +61,8 @@ public class SubmissionService {
     public SubmissionResultDto submitByClaude(int crosswordId, ClaudeModel model, String username) {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
         AppUser user = userService.findEntityByUsername(username);
-        // Checked before the call, because the call is what costs money. The role comes from the database,
-        // not from the client.
-        if (model.isAdminOnly() && user.getRole() != Role.ADMIN) {
-            throw new ModelNotAllowedException("Only an admin may use " + model.name());
-        }
+        // Checked before the call, because the call is what costs money.
+        requireModelAllowed(model, user);
 
         // Built from emptyPuzzleJson by the same mapper as the frontend uses, so Claude gets exactly what a player sees.
         PuzzleDto puzzle = crosswordMapper.toDto(crossword).puzzle();
@@ -87,6 +84,13 @@ public class SubmissionService {
         return submissionRepository.findByCrosswordIdOrderByCreatedOnDesc(crosswordId).stream()
                 .map(submissionMapper::toDto)
                 .toList();
+    }
+
+    // The role comes from the database, not from the client.
+    private void requireModelAllowed(ClaudeModel model, AppUser user) {
+        if (model.isAdminOnly() && user.getRole() != Role.ADMIN) {
+            throw new ModelNotAllowedException("Only an admin may use " + model.name());
+        }
     }
 
     // Player and Claude are scored in exactly the same way.

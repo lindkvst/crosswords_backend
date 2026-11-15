@@ -53,23 +53,15 @@ public class CrosswordService {
 
     public CrosswordDto createCrossword(CreateCrosswordRequestDto request, String username) {
         AppUser user = userService.findEntityByUsername(username);
-        // Looked up before the fill, so an unknown id gives 404 without using any of the quota.
+        // Everything that can fail on our side is checked before the fill, which costs one of the monthly quota.
         GridTemplate template = gridTemplateService.findEntityById(request.gridTemplateId());
-        String playerPrompt = request.playerPrompt() == null || request.playerPrompt().isBlank()
-                ? null : request.playerPrompt().trim();
-        if (playerPrompt != null && playerPrompt.length() > MAX_PROMPT_LENGTH) {
-            throw new InvalidCrosswordRequestException("The theme can be at most " + MAX_PROMPT_LENGTH + " characters");
-        }
+        String playerPrompt = validatedPrompt(request.playerPrompt());
 
-        // Each call costs one fill of the monthly quota.
         // Her fyldes et tomt grid ud med ord
         long fillStart = System.currentTimeMillis();
         FillResponse fill = apiClient.fill(template.getRows());
         int fillMs = (int) (System.currentTimeMillis() - fillStart);
-        if (fill == null || fill.grid() == null || fill.slotsFilled() < fill.slotsTotal()) {
-            String reason = fill == null ? "no response" : fill.reason();
-            throw new CrosswordApiException("The crossword API could not fill the grid: " + reason);
-        }
+        requireFilled(fill);
 
         List<String> answerKeyGrid = fill.grid();
         List<GridWord> gridWords = GridWordFinder.findGridWords(answerKeyGrid);
@@ -78,12 +70,7 @@ public class CrosswordService {
         Map<String, List<ApiClue>> cluesByWord = apiClient.fetchClues(words);
         int cluesMs = (int) (System.currentTimeMillis() - cluesStart);
 
-        // From here on the answers are dropped: a ClueDto has no word, and the grid is blanked.
-        List<ClueDto> clues = gridWords.stream()
-                .map(gridWord -> new ClueDto(gridWord.number(), gridWord.direction(), gridWord.row(), gridWord.col(),
-                        gridWord.word().length(), pickClue(cluesByWord.get(gridWord.word()))))
-                .toList();
-        PuzzleDto puzzle = new PuzzleDto(blankOut(answerKeyGrid), clues);
+        PuzzleDto puzzle = new PuzzleDto(blankOut(answerKeyGrid), toClues(gridWords, cluesByWord));
 
         Crossword saved = crosswordRepository.save(mapper.toEntity(template, user, playerPrompt, puzzle, answerKeyGrid));
         // Recorded after the save, because a usage row must point to a crossword.
@@ -105,6 +92,33 @@ public class CrosswordService {
     public Crossword findEntityById(int id) {
         return crosswordRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("No crossword with id " + id));
+    }
+
+    // An empty theme is stored as null. Too long is rejected here, because the column would reject it after the fill.
+    private String validatedPrompt(String prompt) {
+        if (prompt == null || prompt.isBlank()) {
+            return null;
+        }
+        String trimmed = prompt.trim();
+        if (trimmed.length() > MAX_PROMPT_LENGTH) {
+            throw new InvalidCrosswordRequestException("The theme can be at most " + MAX_PROMPT_LENGTH + " characters");
+        }
+        return trimmed;
+    }
+
+    private void requireFilled(FillResponse fill) {
+        if (fill == null || fill.grid() == null || fill.slotsFilled() < fill.slotsTotal()) {
+            String reason = fill == null ? "no response" : fill.reason();
+            throw new CrosswordApiException("The crossword API could not fill the grid: " + reason);
+        }
+    }
+
+    // From here on the answers are dropped: a ClueDto has the word's length, never the word itself.
+    private List<ClueDto> toClues(List<GridWord> gridWords, Map<String, List<ApiClue>> cluesByWord) {
+        return gridWords.stream()
+                .map(gridWord -> new ClueDto(gridWord.number(), gridWord.direction(), gridWord.row(), gridWord.col(),
+                        gridWord.word().length(), pickClue(cluesByWord.get(gridWord.word()))))
+                .toList();
     }
 
     private String pickClue(List<ApiClue> candidates) {

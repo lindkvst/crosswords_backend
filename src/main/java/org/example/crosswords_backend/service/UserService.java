@@ -30,16 +30,9 @@ public class UserService {
     }
 
     public UserDto register(UserRegistrationDto request) {
-        if (request == null || isBlank(request.username()) || isBlank(request.email()) || isBlank(request.password())) {
-            throw new InvalidRegistrationException("Username, email and password are required");
-        }
-        if (request.password().getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES) {
-            throw new InvalidRegistrationException("The password is too long");
-        }
+        requireValid(request);
         String username = request.username().trim();
-        if (appUserRepository.existsByUsername(username)) {
-            throw new UsernameTakenException("The username is already taken");
-        }
+        requireUsernameFree(username);
 
         // Everyone who registers is a PLAYER. An ADMIN can only be made directly in the database.
         AppUser user = new AppUser(username, request.email().trim(),
@@ -64,6 +57,22 @@ public class UserService {
     public AppUser findEntityByUsername(String username) {
         return appUserRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("No user named " + username));
+    }
+
+    private void requireValid(UserRegistrationDto request) {
+        if (request == null || isBlank(request.username()) || isBlank(request.email()) || isBlank(request.password())) {
+            throw new InvalidRegistrationException("Username, email and password are required");
+        }
+        if (request.password().getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES) {
+            throw new InvalidRegistrationException("The password is too long");
+        }
+    }
+
+    // A quick check with a clear message. The unique column in register() is the real guarantee.
+    private void requireUsernameFree(String username) {
+        if (appUserRepository.existsByUsername(username)) {
+            throw new UsernameTakenException("The username is already taken");
+        }
     }
 
     private UserDto toDto(AppUser user) {
