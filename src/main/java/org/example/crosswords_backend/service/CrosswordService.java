@@ -9,6 +9,7 @@ import org.example.crosswords_backend.dto.CrosswordMapper;
 import org.example.crosswords_backend.dto.PuzzleDto;
 import org.example.crosswords_backend.exception.CrosswordApiException;
 import org.example.crosswords_backend.exception.ResourceNotFoundException;
+import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.GridTemplate;
 import org.example.crosswords_backend.repository.CrosswordRepository;
@@ -29,18 +30,22 @@ public class CrosswordService {
     private final CrosswordRepository crosswordRepository;
     private final GridTemplateRepository gridTemplateRepository;
     private final CrosswordMapper mapper;
+    private final UserService userService;
 
     public CrosswordService(CrosswordApiClient apiClient,
                             CrosswordRepository crosswordRepository,
                             GridTemplateRepository gridTemplateRepository,
-                            CrosswordMapper mapper) {
+                            CrosswordMapper mapper,
+                            UserService userService) {
         this.apiClient = apiClient;
         this.crosswordRepository = crosswordRepository;
         this.gridTemplateRepository = gridTemplateRepository;
         this.mapper = mapper;
+        this.userService = userService;
     }
 
-    public CrosswordDto createCrossword() {
+    public CrosswordDto createCrossword(String username) {
+        AppUser user = userService.findEntityByUsername(username);
         GridTemplate template = gridTemplateRepository.findFirstByOrderByIdAsc()
                 .orElseThrow(() -> new ResourceNotFoundException("No grid template in the database"));
 
@@ -64,7 +69,7 @@ public class CrosswordService {
                 .toList();
         PuzzleDto puzzle = new PuzzleDto(blankOut(answerKeyGrid), clues);
 
-        Crossword saved = crosswordRepository.save(mapper.toEntity(template, puzzle, answerKeyGrid));
+        Crossword saved = crosswordRepository.save(mapper.toEntity(template, user, puzzle, answerKeyGrid));
         return mapper.toDto(saved);
     }
 

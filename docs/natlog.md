@@ -31,3 +31,27 @@ Skrevet af Claude Code undervejs i natten. Tider er lokal tid (CET).
   `HttpMediaTypeNotSupportedException`. Ikke rettet (findes også i V1, ikke en del af briefen) – noteret til Erik.
 - Testbrugeren `natbruger` ligger nu i MySQL-tabellen `app_user` (der må ikke slettes i nat).
 - Slut 01:13.
+
+### Slice 5 – adgang
+- Start 01:13.
+- `SecurityConfig`: HTTP Basic, `SessionCreationPolicy.STATELESS`, CSRF slået fra (begrundet i kommentar), CORS via
+  `CorsConfigurationSource`-bean for `http://localhost:63342` (GET, POST, OPTIONS; headers Authorization, Content-Type).
+  Register og `/error` er åbne, alt andet kræver login.
+- `@CrossOrigin` fjernet fra alle tre controllere (beslutning 53).
+- `JsonAuthenticationEntryPoint`: 401 som JSON i `ErrorMessage`-formen, uden `WWW-Authenticate`. Bruges både af
+  `httpBasic` (forkert password) og `exceptionHandling` (ingen credentials).
+- Bruger sat på nye krydsord og afleveringer: controllerne tager `Principal`, services slår `AppUser` op via
+  `UserService.findEntityByUsername`. Claude-afleveringer får den bruger, der bad Claude løse (beslutning 54).
+  `SubmissionDto` har fået `username` (null for gamle afleveringer). `Crossword`-konstruktøren har fået `user`.
+- Kompilering: ingen fejl.
+- Kørt med curl:
+  - `GET /api/crosswords` uden login → 401 JSON, ingen `WWW-Authenticate`, ingen `Set-Cookie`; med login → 200
+  - `POST /api/crosswords` uden login → 401 (med login ikke kørt – det ville kalde texs)
+  - `POST .../submissions/claude` uden login → 401 (med login ikke kørt – det ville kalde Anthropic)
+  - forkert password → 401 JSON
+  - preflight fra 63342 → 200 med `Access-Control-Allow-Origin/Methods/Headers`; fra fremmed origin → 403
+  - spiller-aflevering med login → 201 med `"username":"natbruger"`; listen viser gamle afleveringer med `username: null`
+  - register stadig åben → 201 (testbruger `natbruger2` oprettet)
+- Fundet, ikke rettet: en ukendt sti med login (`/api/nothing`) giver 500 i stedet for 404, fordi `everythingElse`
+  fanger `NoResourceFoundException`. Samme opførsel som før V2.0. Noteret til Erik.
+- Slut 01:15.

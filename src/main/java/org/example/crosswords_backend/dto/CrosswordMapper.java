@@ -1,5 +1,6 @@
 package org.example.crosswords_backend.dto;
 
+import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.GridTemplate;
 import org.springframework.stereotype.Component;
@@ -18,9 +19,10 @@ public class CrosswordMapper {
         this.objectMapper = objectMapper;
     }
 
-    public Crossword toEntity(GridTemplate template, PuzzleDto puzzle, List<String> answerKeyGrid) {
+    public Crossword toEntity(GridTemplate template, AppUser user, PuzzleDto puzzle, List<String> answerKeyGrid) {
         return new Crossword(
                 template,
+                user,
                 null,
                 objectMapper.writeValueAsString(puzzle),
                 objectMapper.writeValueAsString(answerKeyGrid));

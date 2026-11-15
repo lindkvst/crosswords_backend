@@ -7,7 +7,6 @@ import org.example.crosswords_backend.model.ClaudeModel;
 import org.example.crosswords_backend.service.SubmissionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,12 +15,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.Principal;
 import java.util.List;
 
 // A submission always belongs to one crossword, so it lives under that crossword's URL.
 @RestController
 @RequestMapping("/api/crosswords/{crosswordId}/submissions")
-@CrossOrigin
 public class SubmissionController {
 
     private final SubmissionService submissionService;
@@ -32,8 +31,9 @@ public class SubmissionController {
 
     @PostMapping
     public ResponseEntity<SubmissionResultDto> submit(@PathVariable int crosswordId,
-                                                @RequestBody SubmissionRequestDto request) {
-        SubmissionResultDto result = submissionService.submitByPlayer(crosswordId, request);
+                                                      @RequestBody SubmissionRequestDto request,
+                                                      Principal principal) {
+        SubmissionResultDto result = submissionService.submitByPlayer(crosswordId, request, principal.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -41,8 +41,9 @@ public class SubmissionController {
     // Spring converts ?model=CHEAP_AND_DUMB to the enum. An unknown name never reaches our code.
     @PostMapping("/claude")
     public ResponseEntity<SubmissionResultDto> submitByClaude(@PathVariable int crosswordId,
-                                                              @RequestParam ClaudeModel model) {
-        SubmissionResultDto result = submissionService.submitByClaude(crosswordId, model);
+                                                              @RequestParam ClaudeModel model,
+                                                              Principal principal) {
+        SubmissionResultDto result = submissionService.submitByClaude(crosswordId, model, principal.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 

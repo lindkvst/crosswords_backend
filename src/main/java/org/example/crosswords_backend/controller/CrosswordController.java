@@ -4,18 +4,17 @@ import org.example.crosswords_backend.dto.CrosswordDto;
 import org.example.crosswords_backend.service.CrosswordService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/crosswords")
-@CrossOrigin
 public class CrosswordController {
 
     private final CrosswordService crosswordService;
@@ -25,8 +24,8 @@ public class CrosswordController {
     }
 
     @PostMapping
-    public ResponseEntity<CrosswordDto> create() {
-        return ResponseEntity.status(HttpStatus.CREATED).body(crosswordService.createCrossword());
+    public ResponseEntity<CrosswordDto> create(Principal principal) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(crosswordService.createCrossword(principal.getName()));
     }
 
     @GetMapping

@@ -24,7 +24,7 @@ public class CrosswordSubmission {
     @JoinColumn(name = "crossword_id", nullable = false)
     private Crossword crossword;
 
-    // Empty until users exist in V2.0.
+    // Who submitted it, or who asked Claude to solve it. Empty for submissions made before V2.0.
     @ManyToOne
     @JoinColumn(name = "user_id")
     private AppUser user;

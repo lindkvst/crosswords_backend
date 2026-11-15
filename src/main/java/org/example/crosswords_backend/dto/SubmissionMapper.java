@@ -1,5 +1,6 @@
 package org.example.crosswords_backend.dto;
 
+import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.ClaudeModel;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.CrosswordSubmission;
@@ -17,10 +18,9 @@ public class SubmissionMapper {
         this.objectMapper = objectMapper;
     }
 
-    public CrosswordSubmission toEntity(Crossword crossword, List<String> submittedGrid,
+    public CrosswordSubmission toEntity(Crossword crossword, AppUser user, List<String> submittedGrid,
                                         ClaudeModel llmModel, int timeToSolveMs, int percentCorrect) {
-        // No user yet: users arrive with Spring Security in V2.0.
-        return new CrosswordSubmission(crossword, null, objectMapper.writeValueAsString(submittedGrid),
+        return new CrosswordSubmission(crossword, user, objectMapper.writeValueAsString(submittedGrid),
                 llmModel, timeToSolveMs, percentCorrect);
     }
 
@@ -28,6 +28,8 @@ public class SubmissionMapper {
         return new SubmissionDto(
                 submission.getId(),
                 submission.getCrossword().getId(),
+                // Submissions from before V2.0 have no user.
+                submission.getUser() == null ? null : submission.getUser().getUsername(),
                 submission.getLlmModel(),
                 submission.getTimeToSolveMs(),
                 submission.getPercentCorrect(),

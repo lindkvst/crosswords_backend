@@ -8,6 +8,7 @@ import org.example.crosswords_backend.dto.SubmissionMapper;
 import org.example.crosswords_backend.dto.SubmissionRequestDto;
 import org.example.crosswords_backend.dto.SubmissionResultDto;
 import org.example.crosswords_backend.gridlogic.GridScorer;
+import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.ClaudeModel;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.CrosswordSubmission;
@@ -26,26 +27,31 @@ public class SubmissionService {
     private final CrosswordMapper crosswordMapper;
     private final SubmissionMapper submissionMapper;
     private final ClaudeApiClient claudeApiClient;
+    private final UserService userService;
 
     public SubmissionService(CrosswordService crosswordService,
                              CrosswordSubmissionRepository submissionRepository,
                              CrosswordMapper crosswordMapper,
                              SubmissionMapper submissionMapper,
-                             ClaudeApiClient claudeApiClient) {
+                             ClaudeApiClient claudeApiClient,
+                             UserService userService) {
         this.crosswordService = crosswordService;
         this.submissionRepository = submissionRepository;
         this.crosswordMapper = crosswordMapper;
         this.submissionMapper = submissionMapper;
         this.claudeApiClient = claudeApiClient;
+        this.userService = userService;
     }
 
-    public SubmissionResultDto submitByPlayer(int crosswordId, SubmissionRequestDto request) {
+    public SubmissionResultDto submitByPlayer(int crosswordId, SubmissionRequestDto request, String username) {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
-        return scoreAndSave(crossword, request.grid(), null, Math.max(0, request.timeToSolveMs()));
+        AppUser user = userService.findEntityByUsername(username);
+        return scoreAndSave(crossword, user, request.grid(), null, Math.max(0, request.timeToSolveMs()));
     }
 
-    public SubmissionResultDto submitByClaude(int crosswordId, ClaudeModel model) {
+    public SubmissionResultDto submitByClaude(int crosswordId, ClaudeModel model, String username) {
         Crossword crossword = crosswordService.findEntityById(crosswordId);
+        AppUser user = userService.findEntityByUsername(username);
 
         // Built from emptyPuzzleJson by the same mapper as the frontend uses, so Claude gets exactly what a player sees.
         PuzzleDto puzzle = crosswordMapper.toDto(crossword).puzzle();
@@ -55,7 +61,7 @@ public class SubmissionService {
         List<String> claudeGrid = claudeApiClient.solveCrossword(puzzle, model);
         int timeToSolveMs = (int) (System.currentTimeMillis() - start);
 
-        return scoreAndSave(crossword, claudeGrid, model, timeToSolveMs);
+        return scoreAndSave(crossword, user, claudeGrid, model, timeToSolveMs);
     }
 
     public List<SubmissionDto> findByCrossword(int crosswordId) {
@@ -67,7 +73,7 @@ public class SubmissionService {
     }
 
     // Player and Claude are scored in exactly the same way. llmModel is null for a player.
-    private SubmissionResultDto scoreAndSave(Crossword crossword, List<String> submittedGrid,
+    private SubmissionResultDto scoreAndSave(Crossword crossword, AppUser user, List<String> submittedGrid,
                                              ClaudeModel llmModel, int timeToSolveMs) {
         // Computed here, never in the frontend, because only the backend has the answer key.
         List<String> answerKeyGrid = crosswordMapper.toAnswerKeyGrid(crossword);
@@ -75,7 +81,7 @@ public class SubmissionService {
         int percentCorrect = GridScorer.percentCorrect(cellMarks);
 
         CrosswordSubmission saved = submissionRepository.save(
-                submissionMapper.toEntity(crossword, submittedGrid, llmModel, timeToSolveMs, percentCorrect));
+                submissionMapper.toEntity(crossword, user, submittedGrid, llmModel, timeToSolveMs, percentCorrect));
         return new SubmissionResultDto(submissionMapper.toDto(saved), submittedGrid, cellMarks);
     }
 }
