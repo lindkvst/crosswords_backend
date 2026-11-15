@@ -465,3 +465,200 @@ erDiagram
   `validate` er kun læsning; intet i databasen er ændret.
 - Rettet i natloggen: slice 12 sluttede 01:48, ikke 01:58.
 - Slut 01:51.
+
+### Slice 14 – CI med GitHub Actions (V6.0)
+- Start 01:51.
+- Backend: `.github/workflows/maven-test.yaml` (genbrugelig, `workflow_call`) og `run-tests.yaml` (push og PR mod `main`),
+  samme opdeling som i kino_backend. Samme commit-SHA'er for `actions/checkout` og `actions/setup-java` som i kino.
+  Kører `./mvnw -B verify`. Testene bruger profilen `test` (H2 + mocks), så der skal ingen secrets, ingen MySQL og ingen
+  `-Dspring.profiles.active` til (kino bruger `runnertest`). Maven-cache via `setup-java` `cache: maven` i stedet for
+  en separat `actions/cache` (beslutning 72).
+- Frontend: `.github/workflows/check-js.yaml` kører `node --check` på hver JS-fil (Node er forudinstalleret på runneren).
+- **Fælde fundet:** `node --check a.js b.js` tjekker kun `a.js`, og `find ... -exec node --check {} \;` returnerer 0, selvom
+  node fejler. Min første version af workflowet ville derfor være grøn med syntaksfejl. Bevist med en bevidst fejlbehæftet
+  fil i scratchpad. Skiftet til `find ... -print0 | xargs -0 -n1 node --check`, som giver exit 1 ved fejl (også bevist).
+  (Mine egne tjek i nat har brugt en løkke med én fil pr. kald, så de var gyldige.)
+- Kørt: YAML parset med Ruby (alle tre filer ok), `./mvnw -B verify` grøn, også med de fem miljøvariabler fjernet
+  (`env -u ...`, som på en runner uden secrets), og frontend-kommandoen lokalt grøn.
+- **Ikke kørt på GitHub:** intet er pushet. Workflowene kører først, når Erik pusher til `main` eller laver en PR mod `main`.
+- Ingen CD: Docker (V7.0) og GHCR (V8.0) er ikke lavet.
+- `requests.http`: tilføjet `/api-calls`, `/api/admin/users` og `/api/admin/usage`.
+- Slut 01:54.
+
+---
+
+## Del 2 – afslutning
+
+### 1. Status pr. slice
+
+| Slice | Version | Status | Kørt | Kun skrevet |
+|---|---|---|---|---|
+| 10 Ressourceforbrug | V4.0 | Lavet | compile, curl (`/api-calls`, `estimatedWh`), tests med mocks af optagelsen | Optagelse mod rigtige texs/Anthropic, frontend i browser |
+| 11 Admin-rolle | V4.0 | Lavet | curl (403 for player, Fable-blokering), MockMvc med rigtig admin | Admin mod MySQL, admin-panel i browser |
+| 12 H2 og tests | V5.0 | Lavet | 47 tests grønne, mutationstest af facit-reglen | – |
+| 13 Profiles | V6.0 | Lavet | App i dev og prod mod MySQL, CORS pr. profil | Prod på en rigtig server |
+| 14 CI | V6.0 | Lavet | YAML-parse, `verify` med og uden secrets, frontend-kommando | Kørsel på GitHub Actions |
+
+### 2. Beslutninger (fortsat, Afventer Erik)
+
+**65. Energi = watt × tid med antagne watt**
+- Valg: Én formel for alle. Hjerne 20 W, texs 50 W, Claude 300/700/1400 W. Tid og tokens gemmes, så tallet kan regnes om.
+- Begrundelse: Kan sammenligne menneske og maskine. Nem at forklare og at ændre (ét tal pr. kilde).
+- Fravalgt: Wh pr. token (ingen offentlige tal, og mennesker har ingen tokens). Ingen estimat (roadmap'en beder om det).
+- Status: Afventer Erik
+
+**66. Hvad en admin kan**
+- Valg: Se brugere, se samlet forbrug og som den eneste bruge TOTAL_TOKEN_KILLER.
+- Begrundelse: Alt kun læsning, plus beskyttelse af regningen, som er projektets røde tråd.
+- Fravalgt: Slette krydsord og brugere (destruktivt, og fremmednøgler til afleveringer og api_call). Endpoint til at skifte rolle.
+- Status: Afventer Erik
+
+**67. Admin oprettes kun med SQL**
+- Valg: `UPDATE app_user SET role = 'ADMIN' WHERE username = '...'`.
+- Begrundelse: Ingen hemmelighed i kode og ingen API-vej til at gøre sig selv til admin.
+- Fravalgt: Admin seedet fra miljøvariabler (`ADMIN_USERNAME`/`ADMIN_PASSWORD`). Promote-endpoint.
+- Status: Afventer Erik
+
+**68. CORS-origin fra profilen**
+- Valg: `app.cors.allowed-origin`, standard `http://localhost:63342`, prod `${FRONTEND_ORIGIN}`.
+- Begrundelse: Det eneste i SecurityConfig, der reelt er forskelligt mellem dev og prod.
+- Fravalgt: Liste af origins. Separat `@Profile`-bean for hver profil.
+- Status: Afventer Erik
+
+**69. Én H2-database pr. Spring-testkontekst**
+- Valg: `jdbc:h2:mem:${random.uuid}`.
+- Begrundelse: Kontekster med `create-drop` kan ellers slette hinandens tabeller.
+- Fravalgt: `@DirtiesContext` (langsomt). Fast databasenavn.
+- Status: Afventer Erik
+
+**70. API-klienterne mockes med `@MockitoBean`**
+- Valg: Integrationstestene erstatter `CrosswordApiClient` og `ClaudeApiClient` med mocks.
+- Begrundelse: Ingen nye afhængigheder, intet netværk, ingen kvote.
+- Fravalgt: MockWebServer/WireMock (ny afhængighed). Konsekvens: JSON-mapningen i selve klienterne
+  (`ClaudeResponse`, `FillResponse`) er ikke testet.
+- Status: Afventer Erik
+
+**71. `InitData.templates()` i stedet for en statisk liste**
+- Valg: Nye objekter ved hvert kald.
+- Begrundelse: Fejl fundet af testene (se slice 12).
+- Fravalgt: At kopiere objekterne før save.
+- Status: Afventer Erik
+
+**72. Maven-cache via `setup-java`**
+- Valg: `cache: maven`.
+- Begrundelse: Én action mindre end kino, samme effekt.
+- Fravalgt: `actions/cache` som i kino.
+- Status: Afventer Erik
+
+**73. CI kun på `main`, ingen CD**
+- Valg: Push og PR mod `main`.
+- Begrundelse: Repoet har kun `main`. Docker og GHCR er V7–V8.
+- Fravalgt: Også `dev` som i kino (findes ikke her). Release-workflow.
+- Status: Afventer Erik
+
+**74. `SubmissionDto.estimatedWh` regnes ud fra tiden**
+- Valg: Ingen opslag i `api_call`.
+- Begrundelse: For Claude er kaldets tid og afleveringens tid den samme måling, så tallet bliver det samme.
+- Fravalgt: Join til `api_call` pr. aflevering.
+- Status: Afventer Erik
+
+**75. Kun vellykkede kald optages**
+- Valg: Fejlede kald, inkl. et ubrugeligt Claude-svar, får ingen række.
+- Begrundelse: En række skal pege på et krydsord eller en aflevering.
+- Fravalgt: Gøre crossword-FK valgfri og optage fejl. Bemærk: et ubrugeligt Claude-svar har brugt tokens, som ikke ses.
+- Status: Afventer Erik
+
+**76. `EnergyEstimator` ligger i `service` og bruges af `SubmissionMapper` i `dto`**
+- Valg: Ingen ny pakke.
+- Begrundelse: Pakkelisten i CLAUDE.md.
+- Fravalgt: Egen pakke, fx `energy`. Bemærk, at `dto` nu afhænger af `service`.
+- Status: Afventer Erik
+
+### 3. Refleksionsspørgsmål
+
+**V4.0 – større ERD og roller**
+1. `ApiCall.estimatedWh` er watt × tid. Hvilke af tallene i `api_call` er målt, og hvilke er antaget? Hvordan ville du
+   forsvare tallet 1400 W for Fable over for en kritisk underviser?
+2. `ClaudeAnswerException` betyder, at intet optages i `api_call`. Hvad betyder det for admin-panelets "samlede regning",
+   og hvordan kunne datamodellen ændres, så også fejlede kald tælles?
+3. `/api/admin/**` er beskyttet i `SecurityConfig`, men TOTAL_TOKEN_KILLER tjekkes i `SubmissionService`. Hvorfor kan den
+   sidste regel ikke skrives som en URL-regel? Hvad ville ske, hvis tjekket lå efter `claudeApiClient.solveCrossword`?
+4. Frontend slår Fable-valget fra for spillere. Hvorfor er det ikke en sikkerhedsforanstaltning? Hvordan kan en spiller
+   omgå det, og hvad sker der så?
+5. 401 og 403: hvilken klasse svarer i hvert tilfælde (`JsonAuthenticationEntryPoint`, `JsonAccessDeniedHandler`,
+   `ControllerExceptionHandler`), og hvorfor ender de tre steder?
+6. Hibernate laver `enum('CHEAP_AND_DUMB',...)`-kolonner i MySQL. Hvad sker der, når du tilføjer en fjerde `ClaudeModel` og
+   kører med `ddl-auto=update`? Og med `validate` i prod?
+7. `summarizeByApi` bruger JPQL med `select new ...`. Hvorfor står der `ApiCall c` og `c.durationMs` og ikke
+   `api_call` og `duration_ms`? Hvorfor er felterne i `ApiUsageSummaryDto` `Long` og `Double` og ikke `int`?
+
+**V5.0 – H2 og tests**
+1. `CrosswordFlowIntegrationTest.createdCrosswordNeverContainsTheAnswerKey` blev bevist ved at ødelægge `blankOut`. Hvilke
+   andre ændringer i koden ville facit kunne slippe ud ved, uden at testen opdager det?
+2. Testene mocker `ClaudeApiClient`. Hvilke fejl i den rigtige `ClaudeApiClient` (fx et forkert felt i `ClaudeResponse`) kan
+   testene derfor ikke finde? Hvordan ville du teste den uden at bruge Anthropic-kvote?
+3. Hvorfor fejlede `contextLoads` først, da der var flere Spring-kontekster? Forklar sammenhængen mellem den statiske liste i
+   `InitData` og `save()`, der sætter id.
+4. H2 kører med `MODE=MySQL`. Nævn en forskel mellem H2 og MySQL, som kan gøre, at testene er grønne, mens appen fejler mod
+   MySQL.
+5. `SecurityIntegrationTest` bruger `httpBasic(...)` og ikke `@WithMockUser`. Hvad tester den første, som den anden springer over?
+6. Hvorfor bruger `IntegrationTestBase` en fælles opsætning af `@MockitoBean`-felter? Hvad ville ske med køretiden, hvis hver
+   testklasse mockede noget forskelligt?
+
+**V6.0 – CI og profiles**
+1. Hvorfor bruger prod `ddl-auto=validate` og dev `update`? Hvad sker der, når du deployer en ny entity til prod?
+2. `spring.profiles.active=dev` står i application.properties. Hvordan kan prod så overhovedet blive aktiv, og hvorfor
+   er det vigtigt, at standarden ikke er prod?
+3. CI kører uden secrets. Hvad ville ske, hvis en test ved en fejl ramte den rigtige texs-URL? Hvad sikrer
+   `crossword.api.base-url=http://localhost:1` i testprofilen?
+4. Hvorfor er actions låst til en commit-SHA og ikke `@v7`? Hvilket angreb beskytter det mod?
+5. Den første version af `check-js.yaml` ville have været grøn trods syntaksfejl. Hvordan opdager man den slags fejl i en
+   pipeline, når "grøn" er det eneste, man ser?
+6. Hvad mangler, før man kan kalde det CI/CD og ikke kun CI? Hvilke af de manglende dele hører til V7.0 og V8.0?
+
+### 4. Ændrede filer pr. commit (del 2)
+
+Backend:
+- `4423f34` Slice 10: ClaudeApiClient, ClaudeResponse, ClaudeSolution, CrosswordController, ApiCallDto, SubmissionDto,
+  SubmissionMapper, ApiCall, ClaudeModel, ExternalApi, ApiCallRepository, ApiCallService, CrosswordService,
+  EnergyEstimator, SubmissionService, docs/natlog.md
+- `b409c75` Slice 11: JsonAccessDeniedHandler, SecurityConfig, AdminController, ApiUsageSummaryDto, ModelNotAllowedException,
+  ControllerExceptionHandler, ClaudeModel, ApiCallRepository, ApiCallService, UserService, SubmissionService, docs/natlog.md
+- `5d62ca7` Slice 12: InitData, application-test.properties, CrosswordsBackendApplicationTests, GridScorerTest,
+  GridWordFinderTest, InitDataTemplatesTest, EnergyEstimatorTest, IntegrationTestBase, SecurityIntegrationTest,
+  CrosswordFlowIntegrationTest, docs/natlog.md
+- `17fe987` Slice 13: application.properties, application-dev.properties, application-prod.properties, SecurityConfig, docs/natlog.md
+- Slice 14 (dette commit): .github/workflows/maven-test.yaml, .github/workflows/run-tests.yaml, requests.http, docs/natlog.md
+
+Frontend:
+- `91106f1` Slice 10: index.html, css/stylesheet.css, js/index.js, js/energy.js, js/api/crosswordApi.js,
+  js/components/resourceTable.js, js/components/submissionList.js
+- `1b875a3` Slice 11: index.html, js/index.js, js/models.js, js/api/crosswordApi.js, js/components/adminPanel.js,
+  js/components/resourceTable.js
+- `d5c904e` Slice 14: .github/workflows/check-js.yaml
+
+### 5. Hvad Erik skal gøre manuelt (tillæg til listen i del 1)
+
+- **Ingen DROP.** Tabellen `api_call` er oprettet automatisk af `ddl-auto=update` under min testkørsel (tom).
+- **Gør en bruger til admin** for at se admin-panelet: `UPDATE app_user SET role = 'ADMIN' WHERE username = '<dit navn>';`
+- **Nye miljøvariabler kun til prod:** `SPRING_PROFILES_ACTIVE=prod` og `FRONTEND_ORIGIN`. Intet nyt til dev.
+- **Se CI køre:** push branchen og lav en PR mod `main` (jeg må ikke pushe). Begge repos har workflows.
+- **CLAUDE.md** siger stadig "Ikke nu: ... (V4.0), (V5.0), (V6.0)". Den linje er forældet efter i nat.
+- **Med rigtige nøgler:** tjek at `api_call` får tokens fra Anthropic (felterne `usage.input_tokens/output_tokens`), og at
+  `x-api-key`-spørgsmålet fra del 1 er afklaret.
+- **Enum-kolonner:** tilføjes en ny `ClaudeModel` eller `ExternalApi`, skal MySQL-kolonnen ændres med `ALTER TABLE` (se slice 10).
+- **Browsertest (tillæg):** ressourcetabellen under afleveringer, admin-panelet (som admin), at Fable er låst for en spiller.
+
+### 6. Procesdata (del 2)
+
+- **Tidsforbrug:** 01:27–01:55, ca. 28 minutter, heraf et par minutter på hændelsen med Eriks kompilering og spørgsmålet om
+  frontend. Slice 10: ca. 13 min (inkl. afbrydelsen). Slice 11: 4. Slice 12: 3 (testkørsler ca. 15 s hver).
+  Slice 13: 2. Slice 14: 3. Afslutning: 1.
+- **Kompileringsfejl:** Én, og det var Erik, der ramte den: arbejdskopien var halvfærdig midt i slice 10. Ingen kompileringsfejl
+  i mine egne trin.
+- **Fejl fundet undervejs:**
+  - `InitData`s statiske entity-liste (fundet af testene, rettet).
+  - `node --check` med flere filer (fundet ved at teste min egen CI-kommando, rettet).
+  - Forkert sluttid i natloggen for slice 12 (rettet).
+- **Hvad jeg ville have spurgt Erik om:** Er watt-tallene acceptable som "groft estimat" (65)? Hvad skal en admin kunne (66)?
+  Skal fejlede Claude-kald tælles med i regningen (75)? Skal CI også køre på andre branches end `main` (73)?

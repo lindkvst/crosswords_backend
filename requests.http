@@ -55,3 +55,15 @@ Authorization: Basic brugernavn adgangskode
 ### TOTAL_TOKEN_KILLER can take a few minutes.
 POST http://localhost:8080/api/crosswords/1/submissions/claude?model=CHEAP_AND_DUMB
 Authorization: Basic brugernavn adgangskode
+
+### What creating and solving crossword 1 cost (one row per external call)
+GET http://localhost:8080/api/crosswords/1/api-calls
+Authorization: Basic brugernavn adgangskode
+
+### Admin only: all users
+GET http://localhost:8080/api/admin/users
+Authorization: Basic brugernavn adgangskode
+
+### Admin only: total usage per external API
+GET http://localhost:8080/api/admin/usage
+Authorization: Basic brugernavn adgangskode

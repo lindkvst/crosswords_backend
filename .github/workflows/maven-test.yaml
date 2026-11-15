@@ -1,0 +1,26 @@
+# Reusable job: builds the backend and runs all tests. Called by run-tests.yaml
+# (and later by a release workflow in V8.0, as in kino_backend).
+name: maven-test
+on:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Actions are pinned to a commit SHA, not a tag, because a tag can be moved to other code.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, 2026-07-17
+
+      - name: Set up JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1, 2026-09-09
+        with:
+          java-version: "25"
+          distribution: "temurin"
+          # Keeps ~/.m2 between runs, keyed on pom.xml, so dependencies are not downloaded every time.
+          cache: maven
+
+      # The tests use the "test" profile: H2 in memory and mocked API clients.
+      # So the runner needs no MySQL, no API keys and no GitHub secrets.
+      - name: Run tests
+        run: ./mvnw -B verify
