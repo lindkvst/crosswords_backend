@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -28,6 +29,16 @@ public class ControllerExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(InvalidRegistrationException.class)
+    public ResponseEntity<ErrorMessage> invalidRegistration(InvalidRegistrationException ex, WebRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(UsernameTakenException.class)
+    public ResponseEntity<ErrorMessage> usernameTaken(UsernameTakenException ex, WebRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
     // E.g. ?model=EXPENSIVE, which is not one of the enum values.
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorMessage> invalidParameter(MethodArgumentTypeMismatchException ex, WebRequest request) {
@@ -37,6 +48,12 @@ public class ControllerExceptionHandler {
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ErrorMessage> missingParameter(MissingServletRequestParameterException ex, WebRequest request) {
         return build(HttpStatus.BAD_REQUEST, "Missing parameter '" + ex.getParameterName() + "'", request);
+    }
+
+    // Missing or broken JSON body. Without this it would end as a 500 from everythingElse.
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorMessage> unreadableBody(HttpMessageNotReadableException ex, WebRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "The request body is missing or not valid JSON", request);
     }
 
     @ExceptionHandler(ClaudeAnswerException.class)

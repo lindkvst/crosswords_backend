@@ -8,7 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
-// TODO Part of the V1.0 model, but not used until Spring Security arrives in V2.0.
 // Named AppUser because USER is a reserved word in MySQL.
 @Entity
 public class AppUser {
@@ -22,7 +21,7 @@ public class AppUser {
 
     private String email;
 
-    //TODO Holds a BCrypt hash from V2.0. A plain-text password is never stored.
+    // A BCrypt hash. A plain-text password is never stored.
     private String passwordHash;
 
     // STRING stores "PLAYER"/"ADMIN" instead of 0/1, so reordering the enum cannot corrupt data.
