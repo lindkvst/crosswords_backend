@@ -9,6 +9,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -28,10 +29,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JsonAuthenticationEntryPoint entryPoint,
-                                                   JsonAccessDeniedHandler accessDeniedHandler) throws Exception {
+                                                   JsonAccessDeniedHandler accessDeniedHandler,
+                                                   JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception {
         http
                 // CSRF attacks rely on the browser sending a cookie by itself. We use no cookies and no session:
-                // the frontend adds the Basic header explicitly to every call, which another site cannot do.
+                // the frontend adds the Authorization header (Bearer token) explicitly to every call,
+                // which another site cannot do.
                 .csrf(csrf -> csrf.disable())
                 // Uses the corsConfigurationSource bean below. CORS runs before login is checked,
                 // so the browser's preflight (OPTIONS, sent without credentials) gets its answer instead of 401.
@@ -47,7 +50,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Everything else needs login. Above all the Claude endpoint, because each call costs money.
                         .anyRequest().authenticated())
+                // Basic: username and password. The frontend only uses it once, on POST /api/auth/login,
+                // which answers with a JWT. Postman and requests.http may still use Basic everywhere.
                 .httpBasic(basic -> basic.authenticationEntryPoint(entryPoint))
+                // Bearer: the JWT from the login. Checked by JwtConfig's decoder on every request, without a database lookup.
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
+                        .authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler));

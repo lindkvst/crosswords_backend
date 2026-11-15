@@ -28,7 +28,7 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.register(request));
     }
 
-    // Principal is the user Spring Security authenticated from the Basic header, never a value from the body.
+    // Principal is the user Spring Security authenticated from the token (or Basic header), never a value from the body.
     @GetMapping("/me")
     public UserDto me(Principal principal) {
         return userService.findByUsername(principal.getName());

@@ -50,6 +50,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+        <!-- JWT: signs tokens at login and checks them on every request (decision 86). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+        </dependency>
 
         <!-- Apple Silicon only: lets WebClient (Netty) use the macOS DNS resolver.
              Without it the app still works but logs an error on the first external call. -->

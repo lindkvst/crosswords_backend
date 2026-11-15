@@ -823,3 +823,30 @@ genindlæsning, og CSRF er ikke en risiko, fordi der ingen cookie er.
 Mulig næste version: JWT som i P23–P24 (`POST /api/auth/login` giver et signeret token, frontenden sender `Bearer`).
 Det kræver nok en ny afhængighed (fx `spring-boot-starter-oauth2-resource-server`), og ifølge CLAUDE.md skal Erik godkende det
 først. Alternativ: server-session med JSESSIONID-cookie, men så skal CSRF slås til igen. Ikke bygget. Afventer Erik.
+
+### Slice 19 – JWT i stedet for adgangskoden i hvert kald (Eriks ønske, "jwt token")
+- **Ny afhængighed** (CLAUDE.md regel 7, godkendt af Erik i chatten): `spring-boot-starter-security-oauth2-resource-server`
+  (Boot 4-navnet, henter nimbus-jose-jwt). Versionen styres af Spring Boot-parent (beslutning 86).
+- `POST /api/auth/login` med HTTP Basic → `{token, expiresAt}`. Spring tjekker adgangskoden med BCrypt, før controlleren
+  kører. `TokenService` laver et JWT med `sub` = brugernavn, `roles` = ["PLAYER"] eller ["ADMIN"], `iat`, `exp` (60 min)
+  og `iss`, signeret med HS256 og nøglen fra `JWT_SECRET` (beslutning 87).
+- `JwtConfig`: nøglen skal være mindst 32 bytes, ellers stopper appen ved opstart. Encoder og decoder bruger samme nøgle.
+  En `JwtAuthenticationConverter` gør `roles` til `ROLE_ADMIN`, så `hasRole("ADMIN")` virker uændret.
+- `SecurityConfig`: `oauth2ResourceServer().jwt()` ved siden af `httpBasic()`, med de samme JSON-handlers til 401/403.
+  Basic virker stadig overalt (Postman, requests.http). Frontenden bruger kun Basic ved login (beslutning 88).
+- Et token kan ikke byttes til et nyt token (`requirePasswordLogin` → 400). Ellers kunne et stjålet token forlænges i det
+  uendelige.
+- Rollen i tokenet er et øjebliksbillede: bliver en bruger gjort til admin, gælder det først efter næste login (højst 60 min).
+  Fable-tjekket i `SubmissionService` læser stadig rollen fra databasen.
+- Frontend: `auth.js` gemmer tokenet i **sessionStorage** (beslutning 89, erstatter 55). Man forbliver logget ind ved
+  genindlæsning, til fanen lukkes, man logger ud, eller tokenet udløber. Adgangskoden gemmes aldrig. `resumeLogin()` logger
+  ind igen efter genindlæsning og bliver på den samme side.
+- Log ud sletter kun tokenet i browseren. Tokenet virker stadig på serveren, til det udløber (stateless, ingen sortliste).
+- Tests: `JwtIntegrationTest` (6): login → token → `/me`, forkert password → 401, ændret token → 401 JSON uden
+  `WWW-Authenticate`, udløbet token → 401, rollen i tokenet styrer `/api/admin`, token kan ikke byttes → 400.
+  De gamle tests bruger stadig Basic og er uændrede. 145 tests grønne. `auth.js` er testet i Node med falsk sessionStorage.
+- Kørt mod MySQL på port 8081 med et tilfældigt `JWT_SECRET`, der kun gjaldt den proces: opstart ok, login uden adgangskode
+  → 401, falsk token → 401 uden `WWW-Authenticate`. Stoppet igen.
+- **Erik skal sætte `JWT_SECRET`** (mindst 32 tegn, fx `openssl rand -base64 48`) i IntelliJ's run-konfiguration, ellers starter
+  appen ikke. Også i prod. Ikke i test og CI (testprofilen har en dummy).
+- IKKE testet i en browser.
