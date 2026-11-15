@@ -850,3 +850,20 @@ først. Alternativ: server-session med JSESSIONID-cookie, men så skal CSRF slå
 - **Erik skal sætte `JWT_SECRET`** (mindst 32 tegn, fx `openssl rand -base64 48`) i IntelliJ's run-konfiguration, ellers starter
   appen ikke. Også i prod. Ikke i test og CI (testprofilen har en dummy).
 - IKKE testet i en browser.
+
+#### Slice 19 sammenlignet med undervisningen (SpringSecurityE25A, P23–P24)
+Erik spurgte, om JWT_SECRET har været en del af undervisningen. Læst: `E25A_Prog2_ErikRepos/SpringSecurityE25A`
+(pom.xml, ProjectSecurityConfig, JWTTokenGeneratorFilter, JWTTokenValidatorFilter, SecurityConstants; nøglens værdi er
+ikke læst ud).
+
+| Undervisningen | Her | Hvorfor |
+|---|---|---|
+| jjwt (`io.jsonwebtoken`) og to egne filtre: ét laver tokenet, ét tjekker det | Springs `oauth2ResourceServer().jwt()` med `JwtEncoder`/`JwtDecoder` | Mindre egen sikkerhedskode. Spring tjekker signatur og udløb |
+| Nøglen er en konstant i koden (`SecurityConstants.JWT_KEY`) | Nøglen kommer fra miljøvariablen `JWT_SECRET` | Samme regel som API-nøglerne: ingen hemmeligheder i git |
+| Login med Basic på `/dologin`, tokenet sendes i en response-header | Login med Basic på `POST /api/auth/login`, tokenet i JSON-svaret | Lettere at læse i fetch og i requests.http |
+| Claims: `username` og `authorities` som kommasepareret tekst | Claims: `sub` og `roles` som liste | Standardnavne. Springs converter læser listen direkte |
+| Udløb efter 30.000.000 ms (cirka 8 timer) | 60 minutter | Kortere tid, hvis et token bliver stjålet |
+| Stateless, HMAC (HS256) | Det samme | – |
+
+**Hvad står der i JWT_SECRET?** En tilfældig tekst, som Erik selv laver, fx med `openssl rand -base64 48`. Mindst 32 tegn,
+aldrig i git eller Notion, og en anden værdi i prod. Den, der kender nøglen, kan lave gyldige tokens, også med rollen ADMIN.
