@@ -5,6 +5,7 @@ import org.example.crosswords_backend.client.CrosswordSource;
 import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Role;
 import org.example.crosswords_backend.repository.AppUserRepository;
+import org.example.crosswords_backend.repository.RoleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -32,6 +33,9 @@ abstract class IntegrationTestBase {
     @Autowired
     PasswordEncoder passwordEncoder;
 
+    @Autowired
+    RoleRepository roleRepository;
+
     @MockitoBean
     CrosswordSource crosswordApiClient;
 
@@ -43,9 +47,11 @@ abstract class IntegrationTestBase {
         return username + "@example.com";
     }
 
-    // Saved straight to the database, because the API can only create players.
-    void ensureUser(String username, Role role) {
+    // Saved straight to the database, because the API can only create players. roleName is Role.PLAYER or Role.ADMIN;
+    // the roles themselves come from the role matrix that InitData puts in the (H2) database at startup.
+    void ensureUser(String username, String roleName) {
         if (!appUserRepository.existsByEmail(emailOf(username))) {
+            Role role = roleRepository.findByName(roleName).orElseThrow();
             appUserRepository.save(new AppUser(username, emailOf(username), passwordEncoder.encode(PASSWORD), role));
         }
     }

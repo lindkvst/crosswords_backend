@@ -7,6 +7,7 @@ import org.example.crosswords_backend.client.FakeCrosswordSource;
 import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Role;
 import org.example.crosswords_backend.repository.AppUserRepository;
+import org.example.crosswords_backend.repository.RoleRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -51,6 +52,9 @@ class FakeModeIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private RoleRepository roleRepository;
+
     @Test
     void thePropertiesPickTheFakes() {
         assertInstanceOf(FakeCrosswordSource.class, crosswordSource);
@@ -60,7 +64,8 @@ class FakeModeIntegrationTest {
     @Test
     void aCrosswordCanBeMadeAndSolvedWithoutAnyExternalCall() throws Exception {
         if (!appUserRepository.existsByEmail(EMAIL)) {
-            appUserRepository.save(new AppUser("fake-mode", EMAIL, passwordEncoder.encode(PASSWORD), Role.PLAYER));
+            appUserRepository.save(new AppUser("fake-mode", EMAIL, passwordEncoder.encode(PASSWORD),
+                    roleRepository.findByName(Role.PLAYER).orElseThrow()));
         }
         String body = mockMvc.perform(post("/api/crosswords")
                         .with(httpBasic(EMAIL, PASSWORD))

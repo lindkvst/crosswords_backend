@@ -1,6 +1,7 @@
 package org.example.crosswords_backend.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.example.crosswords_backend.model.PermissionName;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -45,9 +46,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/users/register").permitAll()
                         // Spring forwards errors (e.g. 404) to /error. Without this the real error would become a 401.
                         .requestMatchers("/error").permitAll()
-                        // hasRole("ADMIN") checks the authority "ROLE_ADMIN" that AppUserDetailsService gives.
-                        // Rules are checked from the top, so this must come before anyRequest().
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // Permissions, never role names (see PermissionName and the role matrix). A new role only
+                        // needs new rows in the database. Rules are checked from the top, before anyRequest().
+                        .requestMatchers("/api/admin/**").hasAuthority(PermissionName.VIEW_STATS.name())
+                        .requestMatchers(HttpMethod.POST, "/api/crosswords")
+                        .hasAuthority(PermissionName.CREATE_CROSSWORD.name())
+                        .requestMatchers(HttpMethod.POST, "/api/crosswords/*/submissions/claude")
+                        .hasAuthority(PermissionName.SOLVE_WITH_CLAUDE.name())
                         // Everything else needs login. Above all the Claude endpoint, because each call costs money.
                         .anyRequest().authenticated())
                 // Basic: email and password. The frontend only uses it once, on POST /api/auth/login,

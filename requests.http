@@ -27,6 +27,10 @@ Authorization: Bearer {{token}}
 GET http://localhost:8080/api/grid-templates/sizes
 Authorization: Basic email adgangskode
 
+### The role matrix from the database (needs VIEW_STATS, i.e. ADMIN)
+GET http://localhost:8080/api/admin/roles
+Authorization: Basic email adgangskode
+
 ### All layouts (the backend picks one of the chosen size at random)
 GET http://localhost:8080/api/grid-templates
 Authorization: Basic email adgangskode

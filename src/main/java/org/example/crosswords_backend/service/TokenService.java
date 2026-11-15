@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.stream.Stream;
 
 @Service
 public class TokenService {
@@ -40,6 +41,7 @@ public class TokenService {
                 .expiresAt(expiresAt)
                 .subject(authentication.getName())
                 .claim("roles", roles(authentication))
+                .claim("permissions", permissions(authentication))
                 .build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
         String token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
@@ -55,9 +57,17 @@ public class TokenService {
 
     // "ROLE_ADMIN" becomes "ADMIN". JwtConfig adds the prefix back when the token is read.
     private List<String> roles(Authentication authentication) {
-        return authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .map(authority -> authority.replaceFirst("^ROLE_", ""))
-                .toList();
+        return authorities(authentication).filter(a -> a.startsWith("ROLE_"))
+                .map(a -> a.substring("ROLE_".length())).toList();
+    }
+
+    // The permissions are in the token too, so a request needs no database lookup to know what the user may do.
+    // Like the role, they are a snapshot: a change applies from the next login (at most 60 minutes).
+    private List<String> permissions(Authentication authentication) {
+        return authorities(authentication).filter(a -> !a.startsWith("ROLE_")).toList();
+    }
+
+    private Stream<String> authorities(Authentication authentication) {
+        return authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority);
     }
 }

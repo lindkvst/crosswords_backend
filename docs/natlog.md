@@ -1051,3 +1051,52 @@ diagrammerne (kontekstdiagram, DFD, STRIDE).
 - 164 tests grønne. Intet pushet. Ingen kald til texs eller Anthropic.
 - Erik skal: genstarte backenden. Prøv gerne fake-mode i IntelliJ (`APP_CROSSWORD_SOURCE=fake`, `APP_CROSSWORD_SOLVER=fake`),
   mens frontenden afprøves, og fjern dem før præsentationen.
+
+---
+
+# Del 5 – roller som data med rollematrix
+
+Erik valgte variant C efter en diskussion om YAGNI (to roller), erfaringen fra kino (det var svært at have en fælles
+reference for rolledesignet) og normalisering (en enum bryder ikke 3NF, men C gør roller og rettigheder til data).
+
+### Slice 31 – roller og rettigheder i tabeller, tjek på permissions
+- Nye tabeller: `permission` (én række pr. `PermissionName`), `role` (navn og beskrivelse) og join-tabellen
+  `role_permission` (mange-til-mange). `app_user.role_id` er en fremmednøgle til `role` og erstatter den gamle
+  `app_user.role`-enum-kolonne (beslutning 102).
+- `PermissionName` er kataloget i koden: CREATE_CROSSWORD, SOLVE_WITH_CLAUDE, USE_PREMIUM_MODEL, VIEW_STATS,
+  UNLIMITED_USAGE. Koden tjekker altid en permission, aldrig et rollenavn:
+
+  | Sted | Før | Nu |
+  |---|---|---|
+  | `SecurityConfig` | `/api/admin/**` → `hasRole("ADMIN")` | `hasAuthority(VIEW_STATS)`. Nyt: POST krydsord kræver CREATE_CROSSWORD, Claude kræver SOLVE_WITH_CLAUDE |
+  | `ClaudeModel` | `adminOnly` | `requiredPermission` (Fable kræver USE_PREMIUM_MODEL). Tjekkes mod databasen |
+  | `DailyLimitInterceptor` | `isUserInRole("ADMIN")` | UNLIMITED_USAGE |
+  | Frontend | `role === "ADMIN"` | `can("VIEW_STATS")`, `can("USE_PREMIUM_MODEL")` |
+
+- **Rollematrix** (startværdier i `InitData.roleMatrix()`, samme tabel i Notion): PLAYER har CREATE_CROSSWORD og
+  SOLVE_WITH_CLAUDE. ADMIN har alle. `InitData` opretter kun manglende rækker, så en rolle, der er ændret i databasen,
+  får ikke sine rettigheder overskrevet.
+- Login: `AppUserDetailsService` giver `ROLE_<navn>` plus rollens permissions som authorities. JWT'et har både `roles` og
+  `permissions`, og `JwtConfig`'s converter laver de samme authorities igen. Så kræver en request intet databaseopslag.
+  Fable-tjekket læser dog rollen fra databasen, så en fjernet rettighed gælder med det samme for det dyre kald.
+- Nyt endpoint `GET /api/admin/roles` (kræver VIEW_STATS) giver matrixen fra databasen. Stats-siden viser den som tabel.
+  `UserDto` har nu `role` (navn) og `permissions`.
+- 403-teksten er nu "Your role does not have permission for this" (før "Admin only").
+- Tests: ny `RoleMatrixIntegrationTest` (4). Den vigtigste opretter rollen TEACHER kun som data (kun VIEW_STATS): TEACHER
+  kan se statistik, men får 403 på krydsord og Claude, uden at én linje kode kender TEACHER. 168 tests grønne.
+- `docs/schema-mysql.sql` er genereret igen. Der er ikke kørt `update` mod MySQL. Script-kørslen ramte den database,
+  mine miljøvariabler peger på (`crosswordsdb`), men stoppede uden at skrive noget (0 inserts), fordi tabellen
+  `permission` ikke fandtes.
+- `app_user.role_id` kan være tom i databasen, så eksisterende brugere kan flyttes med én UPDATE. Koden sætter den altid,
+  og en bruger uden rolle har ingen rettigheder.
+
+**Til Eriks `crosswords_v6`:** start den nye version én gang (så oprettes tabellerne, rollerne og `role_id`), og kør så:
+```sql
+-- Flyt eksisterende brugere fra den gamle enum-kolonne til den nye fremmednøgle:
+UPDATE app_user u JOIN role r ON r.name = u.role SET u.role_id = r.id WHERE u.role_id IS NULL;
+-- Gør dig selv til admin (fremover):
+UPDATE app_user SET role_id = (SELECT id FROM role WHERE name = 'ADMIN') WHERE email = '<din email>';
+-- Valgfrit oprydning, kolonnen bruges ikke længere:
+ALTER TABLE app_user DROP COLUMN role;
+```
+Log ud og ind igen bagefter, fordi rettighederne ligger i tokenet.

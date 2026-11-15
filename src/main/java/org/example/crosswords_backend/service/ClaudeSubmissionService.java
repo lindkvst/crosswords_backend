@@ -8,7 +8,6 @@ import org.example.crosswords_backend.exception.ModelNotAllowedException;
 import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.ClaudeModel;
 import org.example.crosswords_backend.model.Crossword;
-import org.example.crosswords_backend.model.Role;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -51,10 +50,11 @@ public class ClaudeSubmissionService {
         return Timed.measure(() -> crosswordSolver.solveCrossword(puzzle, model));
     }
 
-    // The role comes from the database, not from the client.
+    // The role and its permissions come from the database, not from the client or the token,
+    // so a permission removed from a role applies at once for the expensive call.
     private void requireModelAllowed(ClaudeModel model, AppUser user) {
-        if (model.isAdminOnly() && user.getRole() != Role.ADMIN) {
-            throw new ModelNotAllowedException("Only an admin may use " + model.name());
+        if (user.getRole() == null || !user.getRole().hasPermission(model.getRequiredPermission())) {
+            throw new ModelNotAllowedException("Your role may not use " + model.name());
         }
     }
 }

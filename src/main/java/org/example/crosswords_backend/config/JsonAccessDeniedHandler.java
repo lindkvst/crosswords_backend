@@ -28,7 +28,7 @@ public class JsonAccessDeniedHandler implements AccessDeniedHandler {
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException {
         ErrorMessage body = new ErrorMessage(HttpStatus.FORBIDDEN.value(), LocalDateTime.now(),
-                "Admin only", "uri=" + request.getRequestURI());
+                "Your role does not have permission for this", "uri=" + request.getRequestURI());
         response.setStatus(HttpStatus.FORBIDDEN.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.getWriter().write(objectMapper.writeValueAsString(body));

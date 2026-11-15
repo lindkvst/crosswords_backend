@@ -1,11 +1,20 @@
 package org.example.crosswords_backend.config;
 
 import org.example.crosswords_backend.model.GridTemplate;
+import org.example.crosswords_backend.model.Permission;
+import org.example.crosswords_backend.model.PermissionName;
+import org.example.crosswords_backend.model.Role;
 import org.example.crosswords_backend.repository.GridTemplateRepository;
+import org.example.crosswords_backend.repository.PermissionRepository;
+import org.example.crosswords_backend.repository.RoleRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 public class InitData implements CommandLineRunner {
@@ -55,20 +64,64 @@ public class InitData implements CommandLineRunner {
                                 + "......##...../......##....."));
     }
 
-    private final GridTemplateRepository gridTemplateRepository;
+    // The role matrix: which permissions each role starts with. The same table is in Notion as the shared reference.
+    // Only the starting values: a role that already exists in the database is left as it is.
+    static Map<String, Set<PermissionName>> roleMatrix() {
+        return Map.of(
+                Role.PLAYER, EnumSet.of(PermissionName.CREATE_CROSSWORD, PermissionName.SOLVE_WITH_CLAUDE),
+                Role.ADMIN, EnumSet.allOf(PermissionName.class));
+    }
 
-    public InitData(GridTemplateRepository gridTemplateRepository) {
+    private static final Map<String, String> ROLE_DESCRIPTIONS = Map.of(
+            Role.PLAYER, "Spiller: laver og løser krydsord, kan bede Claude om hjælp inden for den daglige grænse",
+            Role.ADMIN, "Administrator: alle rettigheder");
+
+    private final GridTemplateRepository gridTemplateRepository;
+    private final PermissionRepository permissionRepository;
+    private final RoleRepository roleRepository;
+
+    public InitData(GridTemplateRepository gridTemplateRepository,
+                    PermissionRepository permissionRepository,
+                    RoleRepository roleRepository) {
         this.gridTemplateRepository = gridTemplateRepository;
+        this.permissionRepository = permissionRepository;
+        this.roleRepository = roleRepository;
     }
 
     @Override
     public void run(String... args) {
-        // Adds only the templates that are missing, matched by name. Existing rows are never changed,
-        // because saved crosswords point to them.
+        seedTemplates();
+        seedPermissions();
+        seedRoles();
+    }
+
+    // Adds only the templates that are missing, matched by name. Existing rows are never changed,
+    // because saved crosswords point to them.
+    private void seedTemplates() {
         for (GridTemplate template : templates()) {
             if (!gridTemplateRepository.existsByName(template.getName())) {
                 gridTemplateRepository.save(template);
             }
         }
+    }
+
+    // One row per entry in the PermissionName catalogue.
+    private void seedPermissions() {
+        for (PermissionName name : PermissionName.values()) {
+            if (permissionRepository.findByName(name).isEmpty()) {
+                permissionRepository.save(new Permission(name));
+            }
+        }
+    }
+
+    private void seedRoles() {
+        roleMatrix().forEach((roleName, permissionNames) -> {
+            if (!roleRepository.existsByName(roleName)) {
+                Set<Permission> permissions = permissionNames.stream()
+                        .map(name -> permissionRepository.findByName(name).orElseThrow())
+                        .collect(Collectors.toSet());
+                roleRepository.save(new Role(roleName, ROLE_DESCRIPTIONS.get(roleName), permissions));
+            }
+        });
     }
 }

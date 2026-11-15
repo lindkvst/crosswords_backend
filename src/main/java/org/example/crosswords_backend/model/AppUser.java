@@ -2,11 +2,11 @@ package org.example.crosswords_backend.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 
 // Named AppUser because USER is a reserved word in MySQL.
 @Entity
@@ -30,8 +30,10 @@ public class AppUser {
     // A BCrypt hash. A plain-text password is never stored.
     private String passwordHash;
 
-    // STRING stores "PLAYER"/"ADMIN" instead of 0/1, so reordering the enum cannot corrupt data.
-    @Enumerated(EnumType.STRING)
+    // A foreign key to the role table. Nullable in the database only so users from before slice 31 can be moved
+    // over with one UPDATE (see the natlog). The code always sets it: registration gives every new user PLAYER.
+    @ManyToOne
+    @JoinColumn(name = "role_id")
     private Role role;
 
     protected AppUser() {

@@ -9,6 +9,7 @@ import org.example.crosswords_backend.exception.UsernameTakenException;
 import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Role;
 import org.example.crosswords_backend.repository.AppUserRepository;
+import org.example.crosswords_backend.repository.RoleRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,10 +24,13 @@ public class UserService {
     private static final int MAX_PASSWORD_BYTES = 72;
 
     private final AppUserRepository appUserRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(AppUserRepository appUserRepository, PasswordEncoder passwordEncoder) {
+    public UserService(AppUserRepository appUserRepository, RoleRepository roleRepository,
+                       PasswordEncoder passwordEncoder) {
         this.appUserRepository = appUserRepository;
+        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -62,7 +66,8 @@ public class UserService {
     // Two registrations with the same email or username at the same moment both pass the checks,
     // so the unique columns stop the second one here. We cannot tell which column it was, hence one message.
     private AppUser saveNewPlayer(String username, String email, String password) {
-        AppUser user = new AppUser(username, email, passwordEncoder.encode(password), Role.PLAYER);
+        Role player = roleRepository.findByName(Role.PLAYER).orElseThrow();
+        AppUser user = new AppUser(username, email, passwordEncoder.encode(password), player);
         try {
             return appUserRepository.save(user);
         } catch (DataIntegrityViolationException ex) {
@@ -96,7 +101,13 @@ public class UserService {
     }
 
     private UserDto toDto(AppUser user) {
-        return new UserDto(user.getId(), user.getUsername(), user.getEmail(), user.getRole());
+        Role role = user.getRole();
+        List<String> permissions = role == null ? List.of() : role.getPermissions().stream()
+                .map(permission -> permission.getName().name())
+                .sorted()
+                .toList();
+        return new UserDto(user.getId(), user.getUsername(), user.getEmail(),
+                role == null ? null : role.getName(), permissions);
     }
 
     private boolean isBlank(String value) {

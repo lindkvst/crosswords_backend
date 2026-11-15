@@ -89,7 +89,7 @@ class JwtIntegrationTest extends IntegrationTestBase {
     void theRoleInTheTokenDecidesTheAdminEndpoints() throws Exception {
         mockMvc.perform(get("/api/admin/users").header("Authorization", "Bearer " + login(PLAYER)))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Admin only"));
+                .andExpect(jsonPath("$.message").value("Your role does not have permission for this"));
         mockMvc.perform(get("/api/admin/users").header("Authorization", "Bearer " + login(ADMIN)))
                 .andExpect(status().isOk());
     }

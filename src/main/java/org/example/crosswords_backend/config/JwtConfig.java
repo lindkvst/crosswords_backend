@@ -5,16 +5,20 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.stream.Stream;
 
 // JWT with one shared secret (HMAC-SHA256): the same key signs the token at login and checks it on every request.
 // That is fine when one app does both. With several services one would use a key pair (RS256) instead.
@@ -42,15 +46,24 @@ public class JwtConfig {
         return NimbusJwtDecoder.withSecretKey(jwtSecretKey).macAlgorithm(MacAlgorithm.HS256).build();
     }
 
-    // Turns the token's "roles" claim (["ADMIN"]) into the authority ROLE_ADMIN, so hasRole("ADMIN") works as with Basic.
-    // Spring's default reads a "scope" claim and makes SCOPE_ authorities instead.
+    // Turns the token's claims back into the same authorities a Basic login gets: "roles" ["ADMIN"] becomes
+    // ROLE_ADMIN, and each entry in "permissions" (e.g. VIEW_STATS) becomes an authority of that name.
+    // Spring's default would read a "scope" claim and make SCOPE_ authorities instead.
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter roles = new JwtGrantedAuthoritiesConverter();
-        roles.setAuthoritiesClaimName("roles");
-        roles.setAuthorityPrefix("ROLE_");
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(roles);
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            Stream<String> roles = claim(jwt, "roles").stream().map(role -> "ROLE_" + role);
+            Stream<String> permissions = claim(jwt, "permissions").stream();
+            return Stream.concat(roles, permissions)
+                    .<GrantedAuthority>map(SimpleGrantedAuthority::new)
+                    .toList();
+        });
         return converter;
+    }
+
+    private static List<String> claim(Jwt jwt, String name) {
+        List<String> values = jwt.getClaimAsStringList(name);
+        return values == null ? List.of() : values;
     }
 }

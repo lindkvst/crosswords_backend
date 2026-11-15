@@ -3,6 +3,7 @@ package org.example.crosswords_backend.controller;
 import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Role;
 import org.example.crosswords_backend.repository.AppUserRepository;
+import org.example.crosswords_backend.repository.RoleRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -41,6 +42,9 @@ class DailyLimitIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private RoleRepository roleRepository;
+
     @Test
     void aPlayerGets429AfterTheDailyNumberOfCrosswords() throws Exception {
         String email = user("limit-crosswords", Role.PLAYER);
@@ -69,10 +73,11 @@ class DailyLimitIntegrationTest {
         }
     }
 
-    private String user(String username, Role role) {
+    private String user(String username, String roleName) {
         String email = username + "@example.com";
         if (!appUserRepository.existsByEmail(email)) {
-            appUserRepository.save(new AppUser(username, email, passwordEncoder.encode(PASSWORD), role));
+            appUserRepository.save(new AppUser(username, email, passwordEncoder.encode(PASSWORD),
+                    roleRepository.findByName(roleName).orElseThrow()));
         }
         return email;
     }
