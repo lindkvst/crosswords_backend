@@ -662,3 +662,17 @@ Frontend:
   - Forkert sluttid i natloggen for slice 12 (rettet).
 - **Hvad jeg ville have spurgt Erik om:** Er watt-tallene acceptable som "groft estimat" (65)? Hvad skal en admin kunne (66)?
   Skal fejlede Claude-kald tælles med i regningen (75)? Skal CI også køre på andre branches end `main` (73)?
+
+---
+
+## Tillæg 15. nov. (morgen) – overført til Notion
+
+- Beslutning 49–76 ligger i Notion-databasen Beslutningslog (status "Afventer Erik").
+- Refleksionsspørgsmålene ligger i Notion-databasen Refleksionsspørgsmål som nr. 23–56 (status "Ubesvaret").
+  Kolonnerne Version og Slice har fået valgmulighederne V4.0–V6.0 og Slice 4–14.
+- Resten af natloggen står i kort form på undersiden "Natlog 15. nov. 2026: V2.0 til V6.0" under "3. semester - AI projekt".
+- Diagramsiden hedder nu "Diagrammer: Crosswords V6": ERD med `api_call`, klassediagram for V6.0, et nyt klassediagram
+  for sikkerhed og admin, en tabel over adgang pr. endpoint og en tabel over profilerne.
+- "Vejledning: API-nøgler" har fået et afsnit om alle miljøvariabler efter V6.0.
+- Linjen "Ikke nu: ..." i CLAUDE.md er rettet. CLAUDE.md er stadig ikke committet.
+- "Kodegennemgang V1" er ikke ændret, fordi den beskriver V1.0.
