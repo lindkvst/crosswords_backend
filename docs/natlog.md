@@ -971,3 +971,12 @@ diagrammerne (kontekstdiagram, DFD, STRIDE).
   `ClaudeAnswerException` → 502, så frontenden får en forståelig fejl.
 - Kun kompileret og eksisterende tests kørt (grønne). Selve timeouten er ikke testet: det kræver en server, der ikke svarer,
   og MockWebServer er fravalgt (beslutning 70).
+
+### Slice 26 – PuzzleBuilder: facit-reglen i sin egen klasse (SRP)
+- `CrosswordService` både orkestrerede eksterne kald og indeholdt facit-logikken (`blankOut`, `toClues`, `pickClue`).
+  Nu ligger "facit → tomt puslespil" i `gridlogic/PuzzleBuilder.fromAnswerKey(answerKeyGrid, gridWords, clueByWord)`,
+  en ren klasse uden Spring og database. `CrosswordService` vælger kun den første ledetråd pr. ord (`firstClues`).
+- Ny `PuzzleBuilderTest` (4): sorte felter bevares og alle bogstaver forsvinder, intet facit-ord findes i puslespillet,
+  en ledetråd har position og længde, et ord uden ledetråd får standardteksten. 155 tests grønne.
+- Mutationstest: `blankOut` midlertidigt ændret til at returnere gitteret uændret → 2 af de 4 nye tests fejlede
+  ("answer word leaked"). Filen er sat tilbage. Facit-reglen testes nu både som unit test og i integrationstestene.
