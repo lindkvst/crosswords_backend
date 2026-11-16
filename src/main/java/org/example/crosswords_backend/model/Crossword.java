@@ -21,12 +21,12 @@ public class Crossword {
     @JoinColumn(name = "grid_template_id")
     private GridTemplate gridTemplate;
 
-    // TODO Who created it. Empty until users exist in V2.0.
+    // Who created it. Empty for crosswords made before V2.0.
     @ManyToOne
     @JoinColumn(name = "user_id")
     private AppUser user;
 
-    // TODO Empty until V3.0, where the player describes a theme.
+    // The theme the player typed. Empty when none was given, and for crosswords from before V3.0.
     private String playerPrompt;
 
     // The puzzle without answers, stored exactly as it is sent out.
@@ -43,8 +43,10 @@ public class Crossword {
         // required by JPA
     }
 
-    public Crossword(GridTemplate gridTemplate, String playerPrompt, String emptyPuzzleJson, String answerKeyJson) {
+    public Crossword(GridTemplate gridTemplate, AppUser user, String playerPrompt,
+                     String emptyPuzzleJson, String answerKeyJson) {
         this.gridTemplate = gridTemplate;
+        this.user = user;
         this.playerPrompt = playerPrompt;
         this.emptyPuzzleJson = emptyPuzzleJson;
         this.answerKeyJson = answerKeyJson;

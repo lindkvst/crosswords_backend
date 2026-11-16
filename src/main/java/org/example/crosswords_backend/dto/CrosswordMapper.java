@@ -1,5 +1,6 @@
 package org.example.crosswords_backend.dto;
 
+import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Crossword;
 import org.example.crosswords_backend.model.GridTemplate;
 import org.springframework.stereotype.Component;
@@ -18,10 +19,12 @@ public class CrosswordMapper {
         this.objectMapper = objectMapper;
     }
 
-    public Crossword toEntity(GridTemplate template, PuzzleDto puzzle, List<String> answerKeyGrid) {
+    public Crossword toEntity(GridTemplate template, AppUser user, String playerPrompt,
+                              PuzzleDto puzzle, List<String> answerKeyGrid) {
         return new Crossword(
                 template,
-                null,
+                user,
+                playerPrompt,
                 objectMapper.writeValueAsString(puzzle),
                 objectMapper.writeValueAsString(answerKeyGrid));
     }
@@ -34,6 +37,6 @@ public class CrosswordMapper {
     // Built only from emptyPuzzleJson, so the answer key cannot end up in a response by accident.
     public CrosswordDto toDto(Crossword crossword) {
         PuzzleDto puzzle = objectMapper.readValue(crossword.getEmptyPuzzleJson(), PuzzleDto.class);
-        return new CrosswordDto(crossword.getId(), crossword.getCreatedOn(), puzzle);
+        return new CrosswordDto(crossword.getId(), crossword.getCreatedOn(), crossword.getPlayerPrompt(), puzzle);
     }
 }

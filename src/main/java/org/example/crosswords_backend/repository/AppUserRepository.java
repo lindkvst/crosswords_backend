@@ -1,0 +1,15 @@
+package org.example.crosswords_backend.repository;
+
+import org.example.crosswords_backend.model.AppUser;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface AppUserRepository extends JpaRepository<AppUser, Integer> {
+
+    Optional<AppUser> findByEmail(String email);
+
+    boolean existsByEmail(String email);
+
+    boolean existsByUsername(String username);
+}

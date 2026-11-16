@@ -1,21 +1,17 @@
 package org.example.crosswords_backend.service;
 
-import org.example.crosswords_backend.client.ClaudeApiClient;
-import org.example.crosswords_backend.dto.CrosswordMapper;
-import org.example.crosswords_backend.dto.PuzzleDto;
 import org.example.crosswords_backend.dto.SubmissionDto;
 import org.example.crosswords_backend.dto.SubmissionMapper;
-import org.example.crosswords_backend.dto.SubmissionRequestDto;
 import org.example.crosswords_backend.dto.SubmissionResultDto;
-import org.example.crosswords_backend.gridlogic.GridScorer;
-import org.example.crosswords_backend.model.ClaudeModel;
-import org.example.crosswords_backend.model.Crossword;
+import org.example.crosswords_backend.exception.NotOwnerException;
+import org.example.crosswords_backend.exception.ResourceNotFoundException;
 import org.example.crosswords_backend.model.CrosswordSubmission;
 import org.example.crosswords_backend.repository.CrosswordSubmissionRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+// Reading saved submissions. Making them is PlayerSubmissionService's and ClaudeSubmissionService's job.
 @Service
 public class SubmissionService {
 
@@ -23,39 +19,27 @@ public class SubmissionService {
     // and the "not found" rule lives in one place.
     private final CrosswordService crosswordService;
     private final CrosswordSubmissionRepository submissionRepository;
-    private final CrosswordMapper crosswordMapper;
     private final SubmissionMapper submissionMapper;
-    private final ClaudeApiClient claudeApiClient;
+    private final SubmissionRecorder submissionRecorder;
 
     public SubmissionService(CrosswordService crosswordService,
                              CrosswordSubmissionRepository submissionRepository,
-                             CrosswordMapper crosswordMapper,
                              SubmissionMapper submissionMapper,
-                             ClaudeApiClient claudeApiClient) {
+                             SubmissionRecorder submissionRecorder) {
         this.crosswordService = crosswordService;
         this.submissionRepository = submissionRepository;
-        this.crosswordMapper = crosswordMapper;
         this.submissionMapper = submissionMapper;
-        this.claudeApiClient = claudeApiClient;
+        this.submissionRecorder = submissionRecorder;
     }
 
-    public SubmissionResultDto submitByPlayer(int crosswordId, SubmissionRequestDto request) {
-        Crossword crossword = crosswordService.findEntityById(crosswordId);
-        return scoreAndSave(crossword, request.grid(), null, Math.max(0, request.timeToSolveMs()));
-    }
-
-    public SubmissionResultDto submitByClaude(int crosswordId, ClaudeModel model) {
-        Crossword crossword = crosswordService.findEntityById(crosswordId);
-
-        // Built from emptyPuzzleJson by the same mapper as the frontend uses, so Claude gets exactly what a player sees.
-        PuzzleDto puzzle = crosswordMapper.toDto(crossword).puzzle();
-
-        // Here the backend measures the time itself, so it can be trusted (unlike the player's time).
-        long start = System.currentTimeMillis();
-        List<String> claudeGrid = claudeApiClient.solveCrossword(puzzle, model);
-        int timeToSolveMs = (int) (System.currentTimeMillis() - start);
-
-        return scoreAndSave(crossword, claudeGrid, model, timeToSolveMs);
+    // Shows a saved submission again, scored the same way as when it was made.
+    // Only for its owner: Claude's 100 % submission is in practice the answer key.
+    public SubmissionResultDto findOwnSubmission(int crosswordId, int submissionId, int userId) {
+        CrosswordSubmission submission = findSubmission(crosswordId, submissionId);
+        requireOwner(submission, userId);
+        List<String> submittedGrid = submissionMapper.toSubmittedGrid(submission);
+        List<String> cellMarks = submissionRecorder.markCells(submission.getCrossword(), submittedGrid);
+        return submissionRecorder.toResult(submission, submittedGrid, cellMarks);
     }
 
     public List<SubmissionDto> findByCrossword(int crosswordId) {
@@ -66,16 +50,19 @@ public class SubmissionService {
                 .toList();
     }
 
-    // Player and Claude are scored in exactly the same way. llmModel is null for a player.
-    private SubmissionResultDto scoreAndSave(Crossword crossword, List<String> submittedGrid,
-                                             ClaudeModel llmModel, int timeToSolveMs) {
-        // Computed here, never in the frontend, because only the backend has the answer key.
-        List<String> answerKeyGrid = crosswordMapper.toAnswerKeyGrid(crossword);
-        List<String> cellMarks = GridScorer.markCells(answerKeyGrid, submittedGrid);
-        int percentCorrect = GridScorer.percentCorrect(cellMarks);
+    // A submission is only found under its own crossword, so /crosswords/1/submissions/7 cannot show a submission of crossword 2.
+    private CrosswordSubmission findSubmission(int crosswordId, int submissionId) {
+        return submissionRepository.findById(submissionId)
+                .filter(submission -> submission.getCrossword().getId() == crosswordId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No submission with id " + submissionId + " for crossword " + crosswordId));
+    }
 
-        CrosswordSubmission saved = submissionRepository.save(
-                submissionMapper.toEntity(crossword, submittedGrid, llmModel, timeToSolveMs, percentCorrect));
-        return new SubmissionResultDto(submissionMapper.toDto(saved), submittedGrid, cellMarks);
+    // A submission from before V2.0 has no user, so nobody owns it.
+    // A Claude submission belongs to the user who asked Claude, see decision 54.
+    private void requireOwner(CrosswordSubmission submission, int userId) {
+        if (submission.getUser() == null || submission.getUser().getId() != userId) {
+            throw new NotOwnerException("You can only see your own submissions");
+        }
     }
 }

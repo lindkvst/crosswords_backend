@@ -4,10 +4,11 @@ import org.example.crosswords_backend.dto.SubmissionDto;
 import org.example.crosswords_backend.dto.SubmissionRequestDto;
 import org.example.crosswords_backend.dto.SubmissionResultDto;
 import org.example.crosswords_backend.model.ClaudeModel;
+import org.example.crosswords_backend.service.ClaudeSubmissionService;
+import org.example.crosswords_backend.service.PlayerSubmissionService;
 import org.example.crosswords_backend.service.SubmissionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,24 +17,31 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.Principal;
 import java.util.List;
 
 // A submission always belongs to one crossword, so it lives under that crossword's URL.
 @RestController
 @RequestMapping("/api/crosswords/{crosswordId}/submissions")
-@CrossOrigin
 public class SubmissionController {
 
+    private final PlayerSubmissionService playerSubmissionService;
+    private final ClaudeSubmissionService claudeSubmissionService;
     private final SubmissionService submissionService;
 
-    public SubmissionController(SubmissionService submissionService) {
+    public SubmissionController(PlayerSubmissionService playerSubmissionService,
+                                ClaudeSubmissionService claudeSubmissionService,
+                                SubmissionService submissionService) {
+        this.playerSubmissionService = playerSubmissionService;
+        this.claudeSubmissionService = claudeSubmissionService;
         this.submissionService = submissionService;
     }
 
     @PostMapping
     public ResponseEntity<SubmissionResultDto> submit(@PathVariable int crosswordId,
-                                                @RequestBody SubmissionRequestDto request) {
-        SubmissionResultDto result = submissionService.submitByPlayer(crosswordId, request);
+                                                      @RequestBody SubmissionRequestDto request,
+                                                      Principal principal) {
+        SubmissionResultDto result = playerSubmissionService.submit(crosswordId, request, CurrentUser.id(principal));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -41,9 +49,17 @@ public class SubmissionController {
     // Spring converts ?model=CHEAP_AND_DUMB to the enum. An unknown name never reaches our code.
     @PostMapping("/claude")
     public ResponseEntity<SubmissionResultDto> submitByClaude(@PathVariable int crosswordId,
-                                                              @RequestParam ClaudeModel model) {
-        SubmissionResultDto result = submissionService.submitByClaude(crosswordId, model);
+                                                              @RequestParam ClaudeModel model,
+                                                              Principal principal) {
+        SubmissionResultDto result = claudeSubmissionService.solve(crosswordId, model, CurrentUser.id(principal));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    @GetMapping("/{submissionId}")
+    public SubmissionResultDto findOwnSubmission(@PathVariable int crosswordId,
+                                                 @PathVariable int submissionId,
+                                                 Principal principal) {
+        return submissionService.findOwnSubmission(crosswordId, submissionId, CurrentUser.id(principal));
     }
 
     @GetMapping

@@ -1,24 +1,96 @@
-### Create a new crossword (uses one fill of the monthly quota)
+### Since V2.0 every call except register needs login. Two ways work:
+### - HTTP Basic on every call (used below for convenience). Replace "email adgangskode" with a registered user's
+###   email and password. Users log in with the email; the username is only the name others see.
+### - A JWT: call /api/auth/login once with Basic, then send "Authorization: Bearer <token>" (what the frontend does).
+
+### Register a new player (open, no login)
+POST http://localhost:8080/api/users/register
+Content-Type: application/json
+
+{
+  "username": "brugernavn",
+  "email": "mig@example.com",
+  "password": "adgangskode"
+}
+
+### Log in: answers { token, expiresAt }. The token is valid for 60 minutes.
+POST http://localhost:8080/api/auth/login
+Authorization: Basic email adgangskode
+
+> {% client.global.set("token", response.body.token); %}
+
+### The logged-in user, with the token from the login above
+GET http://localhost:8080/api/users/me
+Authorization: Bearer {{token}}
+
+### Grid sizes to choose from, with the number of layouts per size
+GET http://localhost:8080/api/grid-templates/sizes
+Authorization: Basic email adgangskode
+
+### The role matrix from the database (needs VIEW_STATS, i.e. ADMIN)
+GET http://localhost:8080/api/admin/roles
+Authorization: Basic email adgangskode
+
+### All layouts (the backend picks one of the chosen size at random)
+GET http://localhost:8080/api/grid-templates
+Authorization: Basic email adgangskode
+
+### Create a new crossword (uses one fill of the monthly quota). playerPrompt is optional.
 POST http://localhost:8080/api/crosswords
+Authorization: Basic email adgangskode
+Content-Type: application/json
+
+{
+  "gridSize": 5,
+  "playerPrompt": "dyr i skoven"
+}
 
 ### List all saved crosswords (no quota used)
 GET http://localhost:8080/api/crosswords
+Authorization: Basic email adgangskode
 
 ### Get one crossword
 GET http://localhost:8080/api/crosswords/1
+Authorization: Basic email adgangskode
 
-### Submit a filled-in grid for crossword 1 ('.' = empty cell, '#' = black cell)
+### Start the clock for crossword 1 (the frontend does this when the crossword is shown)
+POST http://localhost:8080/api/crosswords/1/attempts
+Authorization: Basic email adgangskode
+
+> {% client.global.set("attemptId", response.body.id); %}
+
+### Submit a filled-in grid for crossword 1 ('.' = empty cell, '#' = black cell).
+### The backend measures the time from the attempt above.
 POST http://localhost:8080/api/crosswords/1/submissions
+Authorization: Basic email adgangskode
 Content-Type: application/json
 
 {
   "grid": ["AB#CD", "EFGHI", "JKLMN", "OPQRS", "TU#VW"],
-  "timeToSolveMs": 42000
+  "attemptId": {{attemptId}}
 }
 
 ### List all submissions for crossword 1
 GET http://localhost:8080/api/crosswords/1/submissions
+Authorization: Basic email adgangskode
+
+### Show one of your own submissions again (403 if it is someone else's)
+GET http://localhost:8080/api/crosswords/1/submissions/1
+Authorization: Basic email adgangskode
 
 ### Let Claude solve crossword 1. model is CHEAP_AND_DUMB, SMARTER_AND_PRICIER or TOTAL_TOKEN_KILLER.
 ### TOTAL_TOKEN_KILLER can take a few minutes.
 POST http://localhost:8080/api/crosswords/1/submissions/claude?model=CHEAP_AND_DUMB
+Authorization: Basic email adgangskode
+
+### What creating and solving crossword 1 cost (one row per external call)
+GET http://localhost:8080/api/crosswords/1/api-calls
+Authorization: Basic email adgangskode
+
+### Admin only: all users
+GET http://localhost:8080/api/admin/users
+Authorization: Basic email adgangskode
+
+### Admin only: total usage per external API
+GET http://localhost:8080/api/admin/usage
+Authorization: Basic email adgangskode

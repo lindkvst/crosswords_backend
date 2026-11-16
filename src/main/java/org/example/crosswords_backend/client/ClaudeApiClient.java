@@ -4,9 +4,11 @@ import org.example.crosswords_backend.dto.PuzzleDto;
 import org.example.crosswords_backend.exception.ClaudeAnswerException;
 import org.example.crosswords_backend.model.ClaudeModel;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -14,8 +16,10 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
+// The real solver (Claude). Used unless app.crossword-solver is set to something else, e.g. "fake".
 @Component
-public class ClaudeApiClient {
+@ConditionalOnProperty(name = "app.crossword-solver", havingValue = "claude", matchIfMissing = true)
+public class ClaudeApiClient implements CrosswordSolver {
 
     // Room for Claude's thinking as well as the short answer. Thinking counts towards this limit,
     // and the expensive models think the longest.
@@ -52,25 +56,42 @@ public class ClaudeApiClient {
     }
 
     // Takes a PuzzleDto, which has no answers. That type is the guarantee that Claude never sees the answer key.
-    public List<String> solveCrossword(PuzzleDto puzzle, ClaudeModel model) {
-        ClaudeRequest request = new ClaudeRequest(
+    @Override
+    public ClaudeSolution solveCrossword(PuzzleDto puzzle, ClaudeModel model) {
+        ClaudeResponse response = send(buildRequest(puzzle, model));
+        List<String> grid = parseGrid(answerText(response));
+        checkShape(grid, puzzle.grid());
+        return toSolution(grid, response.usage());
+    }
+
+    // The puzzle goes in as JSON text, and the JSON schema forces Claude to answer with { "grid": [...] }.
+    private ClaudeRequest buildRequest(PuzzleDto puzzle, ClaudeModel model) {
+        return new ClaudeRequest(
                 model.getModelId(),
                 MAX_TOKENS,
                 SYSTEM_PROMPT,
                 List.of(new ClaudeRequest.Message("user", objectMapper.writeValueAsString(puzzle))),
                 new ClaudeRequest.OutputConfig(new ClaudeRequest.Format("json_schema", GRID_SCHEMA)));
+    }
 
-        ClaudeResponse response = webClient.post()
+    private ClaudeResponse send(ClaudeRequest request) {
+        return webClient.post()
                 .uri("/messages")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(ClaudeResponse.class)
-                .block(TIMEOUT);
+                // Same as with texs: a clear 502 instead of a 500 from block()'s own IllegalStateException.
+                .timeout(TIMEOUT, Mono.error(new ClaudeAnswerException(
+                        "Claude did not answer within " + TIMEOUT.toSeconds() + " seconds")))
+                .block();
+    }
 
-        List<String> grid = parseGrid(answerText(response));
-        checkShape(grid, puzzle.grid());
-        return grid;
+    // The token counts are only used for the resource table, so a missing usage block is not an error.
+    private ClaudeSolution toSolution(List<String> grid, ClaudeResponse.Usage usage) {
+        return usage == null
+                ? new ClaudeSolution(grid, null, null)
+                : new ClaudeSolution(grid, usage.inputTokens(), usage.outputTokens());
     }
 
     // Claude may think before it answers, so the answer is the text block, not necessarily the first block.

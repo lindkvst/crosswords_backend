@@ -1,70 +1,70 @@
 package org.example.crosswords_backend.service;
 
 import org.example.crosswords_backend.client.ApiClue;
-import org.example.crosswords_backend.client.CrosswordApiClient;
+import org.example.crosswords_backend.client.CrosswordSource;
 import org.example.crosswords_backend.client.FillResponse;
-import org.example.crosswords_backend.dto.ClueDto;
+import org.example.crosswords_backend.dto.CreateCrosswordRequestDto;
 import org.example.crosswords_backend.dto.CrosswordDto;
 import org.example.crosswords_backend.dto.CrosswordMapper;
 import org.example.crosswords_backend.dto.PuzzleDto;
 import org.example.crosswords_backend.exception.CrosswordApiException;
+import org.example.crosswords_backend.exception.InvalidCrosswordRequestException;
 import org.example.crosswords_backend.exception.ResourceNotFoundException;
+import org.example.crosswords_backend.model.AppUser;
 import org.example.crosswords_backend.model.Crossword;
+import org.example.crosswords_backend.model.ExternalApi;
 import org.example.crosswords_backend.model.GridTemplate;
 import org.example.crosswords_backend.repository.CrosswordRepository;
-import org.example.crosswords_backend.repository.GridTemplateRepository;
 import org.example.crosswords_backend.gridlogic.GridWord;
 import org.example.crosswords_backend.gridlogic.GridWordFinder;
+import org.example.crosswords_backend.gridlogic.PuzzleBuilder;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class CrosswordService {
 
-    private static final String NO_CLUE = "Ingen ledetråd - brug de krydsende bogstaver";
+    // The playerPrompt column is a VARCHAR(255). A longer text would fail in the database after the fill was paid for.
+    private static final int MAX_PROMPT_LENGTH = 255;
 
-    private final CrosswordApiClient apiClient;
+    private final CrosswordSource crosswordSource;
     private final CrosswordRepository crosswordRepository;
-    private final GridTemplateRepository gridTemplateRepository;
+    private final GridTemplateService gridTemplateService;
     private final CrosswordMapper mapper;
+    private final UserService userService;
+    private final ApiCallService apiCallService;
 
-    public CrosswordService(CrosswordApiClient apiClient,
+    public CrosswordService(CrosswordSource crosswordSource,
                             CrosswordRepository crosswordRepository,
-                            GridTemplateRepository gridTemplateRepository,
-                            CrosswordMapper mapper) {
-        this.apiClient = apiClient;
+                            GridTemplateService gridTemplateService,
+                            CrosswordMapper mapper,
+                            UserService userService,
+                            ApiCallService apiCallService) {
+        this.crosswordSource = crosswordSource;
         this.crosswordRepository = crosswordRepository;
-        this.gridTemplateRepository = gridTemplateRepository;
+        this.gridTemplateService = gridTemplateService;
         this.mapper = mapper;
+        this.userService = userService;
+        this.apiCallService = apiCallService;
     }
 
-    public CrosswordDto createCrossword() {
-        GridTemplate template = gridTemplateRepository.findFirstByOrderByIdAsc()
-                .orElseThrow(() -> new ResourceNotFoundException("No grid template in the database"));
+    public CrosswordDto createCrossword(CreateCrosswordRequestDto request, int userId) {
+        AppUser user = userService.findEntityById(userId);
+        // Everything that can fail on our side is checked before the fill, which costs one of the monthly quota.
+        GridTemplate template = gridTemplateService.findRandomBySize(request.gridSize());
+        String playerPrompt = validatedPrompt(request.playerPrompt());
 
-        // Each call costs one fill of the monthly quota.
-        // Her fyldes et tomt grid ud med ord
-        FillResponse fill = apiClient.fill(template.getRows());
-        if (fill == null || fill.grid() == null || fill.slotsFilled() < fill.slotsTotal()) {
-            String reason = fill == null ? "no response" : fill.reason();
-            throw new CrosswordApiException("The crossword API could not fill the grid: " + reason);
-        }
+        Timed<List<String>> answerKeyGrid = fillGrid(template);
+        List<GridWord> gridWords = GridWordFinder.findGridWords(answerKeyGrid.result());
+        Timed<Map<String, List<ApiClue>>> cluesByWord = fetchClues(gridWords);
 
-        List<String> answerKeyGrid = fill.grid();
-        List<GridWord> gridWords = GridWordFinder.findGridWords(answerKeyGrid);
-        List<String> words = gridWords.stream().map(GridWord::word).toList();
-        Map<String, List<ApiClue>> cluesByWord = apiClient.fetchClues(words);
-
-        // From here on the answers are dropped: a ClueDto has no word, and the grid is blanked.
-        List<ClueDto> clues = gridWords.stream()
-                .map(gridWord -> new ClueDto(gridWord.number(), gridWord.direction(), gridWord.row(), gridWord.col(),
-                        gridWord.word().length(), pickClue(cluesByWord.get(gridWord.word()))))
-                .toList();
-        PuzzleDto puzzle = new PuzzleDto(blankOut(answerKeyGrid), clues);
-
-        Crossword saved = crosswordRepository.save(mapper.toEntity(template, puzzle, answerKeyGrid));
+        PuzzleDto puzzle = PuzzleBuilder.fromAnswerKey(answerKeyGrid.result(), gridWords, firstClues(cluesByWord.result()));
+        Crossword saved = crosswordRepository.save(
+                mapper.toEntity(template, user, playerPrompt, puzzle, answerKeyGrid.result()));
+        recordTexsCalls(saved, answerKeyGrid.ms(), cluesByWord.ms());
         return mapper.toDto(saved);
     }
 
@@ -76,6 +76,16 @@ public class CrosswordService {
         return mapper.toDto(findEntityById(id));
     }
 
+    // What a player or Claude may see of a crossword: built only from emptyPuzzleJson.
+    public PuzzleDto puzzleFor(Crossword crossword) {
+        return mapper.toDto(crossword).puzzle();
+    }
+
+    // Only for scoring inside the backend. Never put the result in a DTO.
+    public List<String> answerKeyFor(Crossword crossword) {
+        return mapper.toAnswerKeyGrid(crossword);
+    }
+
     // For other services only. It returns the entity, which holds the answer key,
     // so a controller must never return the result of this method.
     public Crossword findEntityById(int id) {
@@ -83,14 +93,51 @@ public class CrosswordService {
                 .orElseThrow(() -> new ResourceNotFoundException("No crossword with id " + id));
     }
 
-    private String pickClue(List<ApiClue> candidates) {
-        if (candidates == null || candidates.isEmpty()) {
-            return NO_CLUE;
+    // An empty theme is stored as null. Too long is rejected here, because the column would reject it after the fill.
+    private String validatedPrompt(String prompt) {
+        if (prompt == null || prompt.isBlank()) {
+            return null;
         }
-        return candidates.get(0).text();
+        String trimmed = prompt.trim();
+        if (trimmed.length() > MAX_PROMPT_LENGTH) {
+            throw new InvalidCrosswordRequestException("The theme can be at most " + MAX_PROMPT_LENGTH + " characters");
+        }
+        return trimmed;
     }
 
-    private List<String> blankOut(List<String> grid) {
-        return grid.stream().map(row -> row.replaceAll("[^#]", ".")).toList();
+    // Each fill costs one of the monthly quota. The filled grid is the answer key.
+    private Timed<List<String>> fillGrid(GridTemplate template) {
+        Timed<FillResponse> fill = Timed.measure(() -> crosswordSource.fill(template.getRows()));
+        requireFilled(fill.result());
+        return new Timed<>(fill.result().grid(), fill.ms());
+    }
+
+    private Timed<Map<String, List<ApiClue>>> fetchClues(List<GridWord> gridWords) {
+        List<String> words = gridWords.stream().map(GridWord::word).toList();
+        return Timed.measure(() -> crosswordSource.fetchClues(words));
+    }
+
+    // After the save, because a usage row must point to a crossword.
+    private void recordTexsCalls(Crossword saved, int fillMs, int cluesMs) {
+        apiCallService.recordTexsCall(saved, ExternalApi.TEXS_FILL, fillMs);
+        apiCallService.recordTexsCall(saved, ExternalApi.TEXS_CLUES, cluesMs);
+    }
+
+    private void requireFilled(FillResponse fill) {
+        if (fill == null || fill.grid() == null || fill.slotsFilled() < fill.slotsTotal()) {
+            String reason = fill == null ? "no response" : fill.reason();
+            throw new CrosswordApiException("The crossword API could not fill the grid: " + reason);
+        }
+    }
+
+    // texs may send several clues per word. We use the first; words without any clue are missing from the map.
+    private Map<String, String> firstClues(Map<String, List<ApiClue>> cluesByWord) {
+        Map<String, String> clueByWord = new HashMap<>();
+        cluesByWord.forEach((word, candidates) -> {
+            if (candidates != null && !candidates.isEmpty()) {
+                clueByWord.put(word, candidates.get(0).text());
+            }
+        });
+        return clueByWord;
     }
 }
